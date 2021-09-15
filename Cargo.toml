@@ -1,0 +1,31 @@
+[package]
+name = "burrowland"
+version = "0.1.0"
+authors = ["Eugene The Dream <ek@proximity.dev>"]
+edition = "2018"
+
+[dev-dependencies]
+near-sdk = "3.1.0"
+near-sdk-sim = "3.1.0"
+
+common = { path = "./common"}
+contract = { path = "./contract" }
+test-oracle = { path = "./test-oracle" }
+
+
+[profile.release]
+codegen-units = 1
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+
+
+[workspace]
+members = [
+    "common",
+    "contract",
+    "test-oracle",
+]

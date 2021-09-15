@@ -1,0 +1,12 @@
+[package]
+name = "test-oracle"
+version = "0.1.0"
+authors = ["Eugene The Dream <ek@proximity.dev>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+near-sdk = "3.1.0"
+common = { path = "../common/" }
