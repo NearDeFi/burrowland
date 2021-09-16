@@ -424,6 +424,7 @@ dependencies = [
  "common",
  "near-contract-standards",
  "near-sdk",
+ "rand 0.8.4",
  "uint",
 ]
 

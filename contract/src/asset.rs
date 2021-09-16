@@ -5,7 +5,7 @@ use near_sdk::Duration;
 pub struct Asset {
     pub supplied: Pool,
     pub borrowed: Pool,
-    pub reserve: Balance,
+    pub reserved: Balance,
     pub last_update_timestamp: Timestamp,
     pub config: AssetConfig,
 }
@@ -34,7 +34,7 @@ impl Asset {
         Self {
             supplied: Pool::new(),
             borrowed: Pool::new(),
-            reserve: 0,
+            reserved: 0,
             last_update_timestamp: timestamp,
             config,
         }
@@ -42,7 +42,7 @@ impl Asset {
 
     pub fn get_rate(&self) -> BigDecimal {
         self.config
-            .get_rate(self.borrowed.balance, self.supplied.balance + self.reserve)
+            .get_rate(self.borrowed.balance, self.supplied.balance + self.reserved)
     }
 
     // n = 31536000000 ms in a year (365 days)
@@ -57,13 +57,14 @@ impl Asset {
     // r = n * ((x ** (1 / n)) - 1)
     // n = in millis
     fn compound(&mut self, time_diff_ms: Duration) {
-        let total_supplied_balance = self.supplied.balance + self.reserve;
+        let total_supplied_balance = self.supplied.balance + self.reserved;
         let rate = self.get_rate();
-        let interest =
-            (BigDecimal::from(total_supplied_balance) * rate.pow(time_diff_ms)).as_u128();
+        let interest = rate
+            .pow(time_diff_ms)
+            .round_mul_u128(total_supplied_balance);
         let reserved = ratio(interest, self.config.reserve_ratio);
         self.supplied.balance += interest - reserved;
-        self.reserve += reserved;
+        self.reserved += reserved;
         self.borrowed.balance += interest;
     }
 

@@ -10,9 +10,9 @@ pub struct AssetConfig {
     // E.g. 80% of assets are borrowed.
     pub opt_utilization_pos: u32,
     // Rate in the magic rate formula with BD denominator at opt_utilization_pos
-    pub opt_utilization_rate: BigDecimal,
+    pub opt_utilization_rate: LowU128,
     // Rate at 100% utilization
-    pub max_utilization_rate: BigDecimal,
+    pub max_utilization_rate: LowU128,
     // collateral to loan ratio. 40% means you can borrow 40% of DAI for supplying 100% of NEAR.
     pub collateral_ratio: u32,
 }
@@ -32,14 +32,17 @@ impl AssetConfig {
         if total_supplied_balance == 0 {
             BigDecimal::zero()
         } else {
-            let pos = BigDecimal::from(borrowed_balance) / BigDecimal::from(total_supplied_balance);
+            // Fix overflow
+            let pos = BigDecimal::from(borrowed_balance).div_u128(total_supplied_balance);
             let opt_util_pos =
                 BigDecimal::from(self.opt_utilization_pos) / BigDecimal::from(MAX_POS);
             if pos < opt_util_pos {
-                pos * self.opt_utilization_rate / opt_util_pos
+                pos * BigDecimal::from(self.opt_utilization_rate) / opt_util_pos
             } else {
-                self.opt_utilization_rate
-                    + (pos - opt_util_pos) * (self.max_utilization_rate - self.opt_utilization_rate)
+                BigDecimal::from(self.opt_utilization_rate)
+                    + (pos - opt_util_pos)
+                        * (BigDecimal::from(self.max_utilization_rate)
+                            - BigDecimal::from(self.opt_utilization_rate))
                         / BigDecimal::from(MAX_POS - self.opt_utilization_pos)
             }
         }

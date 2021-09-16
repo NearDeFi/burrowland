@@ -12,3 +12,6 @@ near-sdk = "3.1.0"
 near-contract-standards = "3.1.0"
 uint = { version = "0.9.0", default-features = false }
 common = { path = "../common/" }
+
+[dev-dependencies]
+rand = "0.8"
