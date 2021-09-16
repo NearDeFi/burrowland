@@ -1,6 +1,8 @@
 use crate::*;
 
-#[derive(BorshSerialize, BorshDeserialize, Copy, Clone, Default, Debug)]
+#[derive(
+    BorshSerialize, BorshDeserialize, Copy, Clone, Default, Debug, PartialEq, PartialOrd, Eq, Ord,
+)]
 pub struct Shares(pub Balance);
 
 #[derive(BorshSerialize, BorshDeserialize, Clone)]
@@ -48,5 +50,10 @@ impl Pool {
     pub fn deposit(&mut self, shares: Shares, amount: Balance) {
         self.shares.0 += shares.0;
         self.balance += amount;
+    }
+
+    pub fn withdraw(&mut self, shares: Shares, amount: Balance) {
+        self.shares.0 -= shares.0;
+        self.balance -= amount;
     }
 }

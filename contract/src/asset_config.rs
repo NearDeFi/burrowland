@@ -30,14 +30,14 @@ impl AssetConfig {
         total_supplied_balance: Balance,
     ) -> BigDecimal {
         if total_supplied_balance == 0 {
-            BigDecimal::zero()
+            BigDecimal::one()
         } else {
             // Fix overflow
             let pos = BigDecimal::from(borrowed_balance).div_u128(total_supplied_balance);
             let opt_util_pos =
                 BigDecimal::from(self.opt_utilization_pos) / BigDecimal::from(MAX_POS);
             if pos < opt_util_pos {
-                pos * BigDecimal::from(self.opt_utilization_rate) / opt_util_pos
+                BigDecimal::one() + pos * BigDecimal::from(self.opt_utilization_rate) / opt_util_pos
             } else {
                 BigDecimal::from(self.opt_utilization_rate)
                     + (pos - opt_util_pos)

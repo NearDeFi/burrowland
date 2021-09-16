@@ -37,28 +37,89 @@ impl Account {
         }
     }
 
-    pub fn deposit_shares(&mut self, token_account_id: &TokenAccountId, shares: Shares) {
-        let mut account_asset = self.internal_get_asset_or_default(token_account_id);
-        account_asset.deposit_shares(shares);
-        self.internal_set_asset(&token_account_id, account_asset);
+    pub fn increase_collateral(&mut self, token_account_id: &TokenAccountId, shares: Shares) {
+        if let Some(collateral) = self
+            .collateral
+            .iter_mut()
+            .find(|c| &c.token_account_id == token_account_id)
+        {
+            collateral.shares.0 += shares.0;
+        } else {
+            self.collateral.push(CollateralAsset {
+                token_account_id: token_account_id.clone(),
+                shares,
+            })
+        }
+    }
+
+    pub fn decrease_collateral(&mut self, token_account_id: &TokenAccountId, shares: Shares) {
+        let collateral = self
+            .collateral
+            .iter_mut()
+            .find(|c| &c.token_account_id == token_account_id)
+            .expect("Collateral not found");
+        if let Some(new_balance) = collateral.shares.0.checked_sub(shares.0) {
+            collateral.shares.0 = new_balance;
+        } else {
+            env::panic(b"Not enough collateral balance");
+        }
+    }
+
+    pub fn increase_borrowed(&mut self, token_account_id: &TokenAccountId, shares: Shares) {
+        if let Some(borrowed) = self
+            .borrowed
+            .iter_mut()
+            .find(|c| &c.token_account_id == token_account_id)
+        {
+            borrowed.shares.0 += shares.0;
+        } else {
+            self.borrowed.push(BorrowedAsset {
+                token_account_id: token_account_id.clone(),
+                shares,
+            })
+        }
+    }
+
+    pub fn decrease_borrowed(&mut self, token_account_id: &TokenAccountId, shares: Shares) {
+        let borrowed = self
+            .borrowed
+            .iter_mut()
+            .find(|c| &c.token_account_id == token_account_id)
+            .expect("Borrowed asset not found");
+        if let Some(new_balance) = borrowed.shares.0.checked_sub(shares.0) {
+            borrowed.shares.0 = new_balance;
+        } else {
+            env::panic(b"Not enough borrowed balance");
+        }
+    }
+
+    pub fn internal_unwrap_collateral(&mut self, token_account_id: &TokenAccountId) -> Shares {
+        self.collateral
+            .iter()
+            .find(|c| &c.token_account_id == token_account_id)
+            .expect("Collateral not found")
+            .shares
+    }
+
+    pub fn internal_unwrap_borrowed(&mut self, token_account_id: &TokenAccountId) -> Shares {
+        self.borrowed
+            .iter()
+            .find(|c| &c.token_account_id == token_account_id)
+            .expect("Borrowed asset not found")
+            .shares
     }
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct AccountAsset {
+pub struct CollateralAsset {
+    pub token_account_id: TokenAccountId,
     pub shares: Shares,
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct CollateralAsset {
-    pub asset_id: TokenAccountId,
-    pub shares: Balance,
-}
-
-#[derive(BorshSerialize, BorshDeserialize)]
 pub struct BorrowedAsset {
-    pub asset_id: TokenAccountId,
-    pub shares: Balance,
+    pub token_account_id: TokenAccountId,
+    pub shares: Shares,
 }
 
 #[derive(Serialize, Deserialize)]

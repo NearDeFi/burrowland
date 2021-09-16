@@ -77,22 +77,13 @@ impl Asset {
             self.compound(time_diff_ms);
         }
     }
+
+    pub fn available_amount(&self) -> Balance {
+        self.supplied.balance + self.reserved - self.borrowed.balance
+    }
 }
 
 impl Contract {
-    pub fn internal_deposit(
-        &mut self,
-        account: &mut Account,
-        token_account_id: &TokenAccountId,
-        amount: Balance,
-    ) {
-        let mut asset = self.internal_unwrap_asset(token_account_id);
-        let shares: Shares = asset.supplied.amount_to_shares(amount, false);
-        asset.supplied.deposit(shares, amount);
-        account.deposit_shares(token_account_id, shares);
-        self.internal_set_asset(token_account_id, asset);
-    }
-
     pub fn internal_unwrap_asset(&self, token_account_id: &TokenAccountId) -> Asset {
         self.internal_get_asset(token_account_id)
             .expect("Asset not found")
