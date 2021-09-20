@@ -3,6 +3,7 @@ use crate::*;
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 enum PriceReceiverMsg {
+    Execute { actions: Vec<Action> },
     DecreaseCollateral {},
     Borrow {},
     Liquidate {},

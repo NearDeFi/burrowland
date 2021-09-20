@@ -2,7 +2,7 @@ use crate::*;
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Account {
-    pub assets: UnorderedMap<TokenAccountId, VAccountAsset>,
+    pub supplied: UnorderedMap<TokenAccountId, VAccountAsset>,
     pub collateral: Vec<CollateralAsset>,
     pub borrowed: Vec<BorrowedAsset>,
 }
@@ -29,7 +29,7 @@ impl From<Account> for VAccount {
 impl Account {
     pub fn new(account_id: &AccountId) -> Self {
         Self {
-            assets: UnorderedMap::new(StorageKey::AccountAssets {
+            supplied: UnorderedMap::new(StorageKey::AccountAssets {
                 account_id: account_id.clone(),
             }),
             collateral: vec![],
@@ -53,13 +53,17 @@ impl Account {
     }
 
     pub fn decrease_collateral(&mut self, token_account_id: &TokenAccountId, shares: Shares) {
-        let collateral = self
+        let index = self
             .collateral
-            .iter_mut()
-            .find(|c| &c.token_account_id == token_account_id)
+            .iter()
+            .position(|c| &c.token_account_id == token_account_id)
             .expect("Collateral not found");
-        if let Some(new_balance) = collateral.shares.0.checked_sub(shares.0) {
-            collateral.shares.0 = new_balance;
+        if let Some(new_balance) = self.collateral[index].shares.0.checked_sub(shares.0) {
+            if new_balance > 0 {
+                self.collateral[index].shares.0 = new_balance;
+            } else {
+                self.collateral.swap_remove(index);
+            }
         } else {
             env::panic(b"Not enough collateral balance");
         }
@@ -81,13 +85,17 @@ impl Account {
     }
 
     pub fn decrease_borrowed(&mut self, token_account_id: &TokenAccountId, shares: Shares) {
-        let borrowed = self
+        let index = self
             .borrowed
-            .iter_mut()
-            .find(|c| &c.token_account_id == token_account_id)
+            .iter()
+            .position(|c| &c.token_account_id == token_account_id)
             .expect("Borrowed asset not found");
-        if let Some(new_balance) = borrowed.shares.0.checked_sub(shares.0) {
-            borrowed.shares.0 = new_balance;
+        if let Some(new_balance) = self.borrowed[index].shares.0.checked_sub(shares.0) {
+            if new_balance > 0 {
+                self.borrowed[index].shares.0 = new_balance;
+            } else {
+                self.borrowed.swap_remove(index);
+            }
         } else {
             env::panic(b"Not enough borrowed balance");
         }

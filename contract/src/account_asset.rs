@@ -53,7 +53,7 @@ impl Account {
     }
 
     pub fn internal_get_asset(&self, token_account_id: &TokenAccountId) -> Option<AccountAsset> {
-        self.assets.get(token_account_id).map(|o| o.into())
+        self.supplied.get(token_account_id).map(|o| o.into())
     }
 
     pub fn internal_get_asset_or_default(
@@ -66,9 +66,10 @@ impl Account {
 
     pub fn set_asset(&mut self, token_account_id: &TokenAccountId, account_asset: AccountAsset) {
         if account_asset.is_empty() {
-            self.assets.remove(token_account_id);
+            self.supplied.remove(token_account_id);
         } else {
-            self.assets.insert(token_account_id, &account_asset.into());
+            self.supplied
+                .insert(token_account_id, &account_asset.into());
         }
     }
 }

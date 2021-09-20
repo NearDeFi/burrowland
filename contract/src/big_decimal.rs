@@ -6,30 +6,37 @@ uint::construct_uint!(
     pub struct U256(4);
 );
 
-const BIG_DIVISOR: u128 = 10u128.pow(27);
+uint::construct_uint!(
+    pub struct U384(6);
+);
+
+const MAX_RATIO: u32 = 10000;
+
+const NUM_DECIMALS: u8 = 27;
+const BIG_DIVISOR: u128 = 10u128.pow(NUM_DECIMALS as u32);
 const HALF_DIVISOR: u128 = BIG_DIVISOR / 2;
 
 #[derive(Copy, Clone, BorshSerialize, BorshDeserialize, PartialEq, PartialOrd)]
 pub struct LowU128(u128);
 
 #[derive(Copy, Clone)]
-pub struct BigDecimal(U256);
+pub struct BigDecimal(U384);
 
 impl From<u128> for BigDecimal {
     fn from(a: u128) -> Self {
-        Self(U256::from(a) * U256::from(BIG_DIVISOR))
+        Self(U384::from(a) * U384::from(BIG_DIVISOR))
     }
 }
 
 impl From<u64> for BigDecimal {
     fn from(a: u64) -> Self {
-        Self(U256::from(a) * U256::from(BIG_DIVISOR))
+        Self(U384::from(a) * U384::from(BIG_DIVISOR))
     }
 }
 
 impl From<u32> for BigDecimal {
     fn from(a: u32) -> Self {
-        Self(U256::from(a) * U256::from(BIG_DIVISOR))
+        Self(U384::from(a) * U384::from(BIG_DIVISOR))
     }
 }
 
@@ -53,7 +60,7 @@ impl Mul for BigDecimal {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Self((self.0 * rhs.0 + U256::from(HALF_DIVISOR)) / U256::from(BIG_DIVISOR))
+        Self((self.0 * rhs.0 + U384::from(HALF_DIVISOR)) / U384::from(BIG_DIVISOR))
     }
 }
 
@@ -61,13 +68,13 @@ impl Div for BigDecimal {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        Self((self.0 * U256::from(BIG_DIVISOR) + U256::from(HALF_DIVISOR)) / rhs.0)
+        Self((self.0 * U384::from(BIG_DIVISOR) + U384::from(HALF_DIVISOR)) / rhs.0)
     }
 }
 
 impl From<LowU128> for BigDecimal {
     fn from(low_u128: LowU128) -> Self {
-        Self(U256::from(low_u128.0))
+        Self(U384::from(low_u128.0))
     }
 }
 
@@ -78,24 +85,41 @@ impl From<BigDecimal> for LowU128 {
 }
 
 impl BigDecimal {
+    pub fn from_ratio(ratio: u32) -> Self {
+        Self(U384::from(ratio) * U384::from(BIG_DIVISOR / (MAX_RATIO as u128)))
+    }
+
+    pub fn mul_ratio(&self, ratio: u32) -> Self {
+        Self((self.0 * U384::from(ratio) + U384::from(MAX_RATIO / 2)) / U384::from(MAX_RATIO))
+    }
+
+    pub fn from_balance_price(balance: Balance, price: &Price) -> Self {
+        let num = U384::from(price.multiplier) * U384::from(balance);
+        if price.decimals > NUM_DECIMALS {
+            Self(num / U384::exp10((price.decimals - NUM_DECIMALS) as usize))
+        } else {
+            Self(num * U384::exp10((NUM_DECIMALS - price.decimals) as usize))
+        }
+    }
+
     pub fn round_u128(&self) -> u128 {
-        ((self.0 + U256::from(HALF_DIVISOR)) / U256::from(BIG_DIVISOR)).as_u128()
+        ((self.0 + U384::from(HALF_DIVISOR)) / U384::from(BIG_DIVISOR)).as_u128()
     }
 
     pub fn round_mul_u128(&self, rhs: u128) -> u128 {
-        ((self.0 * U256::from(rhs) + U256::from(HALF_DIVISOR)) / U256::from(BIG_DIVISOR)).as_u128()
+        ((self.0 * U384::from(rhs) + U384::from(HALF_DIVISOR)) / U384::from(BIG_DIVISOR)).as_u128()
     }
 
     pub fn div_u128(&self, rhs: u128) -> BigDecimal {
-        Self(self.0 / U256::from(rhs))
+        Self(self.0 / U384::from(rhs))
     }
 
     pub fn zero() -> Self {
-        Self(U256::zero())
+        Self(U384::zero())
     }
 
     pub fn one() -> Self {
-        Self(U256::from(BIG_DIVISOR))
+        Self(U384::from(BIG_DIVISOR))
     }
 
     pub fn pow(&self, mut exponent: u64) -> Self {
@@ -136,7 +160,7 @@ impl PartialOrd for BigDecimal {
 //
 // impl BorshDeserialize for BigDecimal {
 //     fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
-//         Ok(Self(U256(BorshDeserialize::deserialize(buf)?)))
+//         Ok(Self(U384(BorshDeserialize::deserialize(buf)?)))
 //     }
 // }
 

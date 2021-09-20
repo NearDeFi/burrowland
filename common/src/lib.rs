@@ -36,8 +36,8 @@ pub trait OraclePriceReceiver {
 #[serde(crate = "near_sdk::serde")]
 pub struct Price {
     #[serde(with = "u128_dec_format")]
-    multiplier: Balance,
-    decimals: u8,
+    pub multiplier: Balance,
+    pub decimals: u8,
 }
 
 impl Price {
