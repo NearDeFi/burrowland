@@ -1,6 +1,4 @@
 use crate::*;
-use near_sdk::json_types::WrappedBalance;
-use std::collections::HashMap;
 
 const MAX_NUM_ASSETS: usize = 8;
 
@@ -27,13 +25,25 @@ pub enum Action {
     },
 }
 
+#[near_bindgen]
+impl Contract {
+    #[payable]
+    pub fn execute(&mut self, actions: Vec<Action>) {
+        assert_one_yocto();
+        let account_id = env::predecessor_account_id();
+        let mut account = self.internal_unwrap_account(&account_id);
+        self.internal_execute(&account_id, &mut account, actions, Prices::new());
+        self.internal_set_account(&account_id, account);
+    }
+}
+
 impl Contract {
     pub fn internal_execute(
         &mut self,
         account_id: &AccountId,
         account: &mut Account,
         actions: Vec<Action>,
-        prices: HashMap<TokenAccountId, Price>,
+        prices: Prices,
     ) {
         let mut need_risk_check = false;
         let mut need_number_check = false;
@@ -41,7 +51,7 @@ impl Contract {
             match action {
                 Action::Withdraw(asset_amount) => {
                     let amount = self.internal_withdraw(account, &asset_amount);
-                    // TODO: self.internal_ft_transfer(actor_account_id, amount);
+                    self.internal_ft_transfer(account_id, &asset_amount.token_account_id, amount);
                 }
                 Action::IncreaseCollateral(asset_amount) => {
                     need_number_check = true;
@@ -93,15 +103,13 @@ impl Contract {
             assert!(self.compute_max_discount(account, &prices) == BigDecimal::zero());
         }
     }
-}
 
-impl Contract {
     pub fn internal_deposit(
         &mut self,
         account: &mut Account,
         token_account_id: &TokenAccountId,
         amount: Balance,
-    ) {
+    ) -> Shares {
         let mut asset = self.internal_unwrap_asset(token_account_id);
         let mut account_asset = account.internal_get_asset_or_default(token_account_id);
 
@@ -112,6 +120,8 @@ impl Contract {
 
         asset.supplied.deposit(shares, amount);
         self.internal_set_asset(token_account_id, asset);
+
+        shares
     }
 
     pub fn internal_withdraw(
@@ -123,7 +133,7 @@ impl Contract {
         let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_account_id);
 
         let (shares, amount) =
-            asset_amount_to_shares(&asset.supplied, account_asset.shares, &asset_amount);
+            asset_amount_to_shares(&asset.supplied, account_asset.shares, &asset_amount, false);
 
         account_asset.withdraw_shares(shares);
         account.set_asset(&asset_amount.token_account_id, account_asset);
@@ -138,17 +148,19 @@ impl Contract {
         &mut self,
         account: &mut Account,
         asset_amount: &AssetAmount,
-    ) {
+    ) -> Balance {
         let asset = self.internal_unwrap_asset(&asset_amount.token_account_id);
         let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_account_id);
 
-        let (shares, _amount) =
-            asset_amount_to_shares(&asset.supplied, account_asset.shares, &asset_amount);
+        let (shares, amount) =
+            asset_amount_to_shares(&asset.supplied, account_asset.shares, &asset_amount, false);
 
         account_asset.withdraw_shares(shares);
         account.set_asset(&asset_amount.token_account_id, account_asset);
 
         account.increase_collateral(&asset_amount.token_account_id, shares);
+
+        amount
     }
 
     pub fn internal_decrease_collateral(
@@ -161,7 +173,7 @@ impl Contract {
         let collateral_shares = account.internal_unwrap_collateral(&asset_amount.token_account_id);
 
         let (shares, amount) =
-            asset_amount_to_shares(&asset.supplied, collateral_shares, &asset_amount);
+            asset_amount_to_shares(&asset.supplied, collateral_shares, &asset_amount, false);
 
         account.decrease_collateral(&asset_amount.token_account_id, shares);
 
@@ -182,9 +194,8 @@ impl Contract {
         let available_amount = asset.available_amount();
         let max_borrow_shares = asset.borrowed.amount_to_shares(available_amount, false);
 
-        // TODO: Round up shares
         let (borrowed_shares, amount) =
-            asset_amount_to_shares(&asset.borrowed, max_borrow_shares, &asset_amount);
+            asset_amount_to_shares(&asset.borrowed, max_borrow_shares, &asset_amount, true);
 
         assert!(amount <= available_amount);
 
@@ -212,8 +223,12 @@ impl Contract {
         let available_borrowed_shares =
             account.internal_unwrap_borrowed(&asset_amount.token_account_id);
 
-        let (mut borrowed_shares, mut amount) =
-            asset_amount_to_shares(&asset.borrowed, available_borrowed_shares, &asset_amount);
+        let (mut borrowed_shares, mut amount) = asset_amount_to_shares(
+            &asset.borrowed,
+            available_borrowed_shares,
+            &asset_amount,
+            true,
+        );
 
         let mut supplied_shares = asset.supplied.amount_to_shares(amount, true);
         if supplied_shares > account_asset.shares {
@@ -224,8 +239,7 @@ impl Contract {
             }
             assert!(amount > 0, "Repayment amount can't be 0");
 
-            // TODO: Round down?
-            borrowed_shares = asset.borrowed.amount_to_shares(amount, true);
+            borrowed_shares = asset.borrowed.amount_to_shares(amount, false);
             assert!(borrowed_shares.0 > 0, "Shares can't be 0");
             assert!(borrowed_shares <= available_borrowed_shares);
         }
@@ -244,7 +258,7 @@ impl Contract {
     pub fn internal_liquidate(
         &mut self,
         account: &mut Account,
-        prices: &HashMap<TokenAccountId, Price>,
+        prices: &Prices,
         liquidation_account_id: ValidAccountId,
         in_assets: Vec<AssetAmount>,
         out_assets: Vec<AssetAmount>,
@@ -269,9 +283,7 @@ impl Contract {
             borrowed_repaid_sum = borrowed_repaid_sum
                 + BigDecimal::from_balance_price(
                     amount,
-                    prices
-                        .get(&asset_amount.token_account_id)
-                        .expect("Asset price is missing"),
+                    prices.get_unwrap(&asset_amount.token_account_id),
                 );
         }
 
@@ -288,9 +300,7 @@ impl Contract {
             collateral_taken_sum = collateral_taken_sum
                 + BigDecimal::from_balance_price(
                     amount,
-                    prices
-                        .get(&asset_amount.token_account_id)
-                        .expect("Asset price is missing"),
+                    prices.get_unwrap(&asset_amount.token_account_id),
                 );
         }
 
@@ -311,11 +321,14 @@ impl Contract {
         // Borrowed: 300 DAI * 1$ = 300$
         // Max discount: 0%
 
-        let discounted_collateral_taken = collateral_taken_sum * (BigDecimal::one() - max_discount);
-        assert!(
-            discounted_collateral_taken <= borrowed_repaid_sum,
-            "Not enough balances repaid"
-        );
+        if max_discount < BigDecimal::one() {
+            let discounted_collateral_taken =
+                collateral_taken_sum * (BigDecimal::one() - max_discount);
+            assert!(
+                discounted_collateral_taken <= borrowed_repaid_sum,
+                "Not enough balances repaid"
+            );
+        }
 
         let new_max_discount = self.compute_max_discount(&liquidation_account, &prices);
         assert!(
@@ -326,11 +339,7 @@ impl Contract {
         self.internal_set_account(liquidation_account_id.as_ref(), liquidation_account);
     }
 
-    pub fn compute_max_discount(
-        &self,
-        account: &Account,
-        prices: &HashMap<TokenAccountId, Price>,
-    ) -> BigDecimal {
+    pub fn compute_max_discount(&self, account: &Account, prices: &Prices) -> BigDecimal {
         let collateral_sum = account
             .collateral
             .iter()
@@ -339,9 +348,7 @@ impl Contract {
                 let balance = asset.supplied.shares_to_amount(c.shares, false);
                 sum + BigDecimal::from_balance_price(
                     balance,
-                    prices
-                        .get(&c.token_account_id)
-                        .expect("Asset price is missing"),
+                    prices.get_unwrap(&c.token_account_id),
                 )
                 .mul_ratio(asset.config.collateral_ratio)
             });
@@ -349,22 +356,15 @@ impl Contract {
         let borrowed_sum = account.borrowed.iter().fold(BigDecimal::zero(), |sum, b| {
             let asset = self.internal_unwrap_asset(&b.token_account_id);
             let balance = asset.borrowed.shares_to_amount(b.shares, true);
-            sum + BigDecimal::from_balance_price(
-                balance,
-                prices
-                    .get(&b.token_account_id)
-                    .expect("Asset price is missing"),
-            )
+            sum + BigDecimal::from_balance_price(balance, prices.get_unwrap(&b.token_account_id))
         });
 
         if borrowed_sum <= collateral_sum {
             BigDecimal::zero()
+        } else if collateral_sum == BigDecimal::zero() {
+            BigDecimal::one()
         } else {
-            assert!(
-                collateral_sum > BigDecimal::zero(),
-                "The collateral sum can't be 0"
-            );
-            (borrowed_sum - collateral_sum) / collateral_sum
+            (borrowed_sum - collateral_sum) / collateral_sum / BigDecimal::from(2u32)
         }
     }
 }
@@ -373,19 +373,29 @@ fn asset_amount_to_shares(
     pool: &Pool,
     available_shares: Shares,
     asset_amount: &AssetAmount,
+    inverse_round_direction: bool,
 ) -> (Shares, Balance) {
     let (shares, amount) = if let Some(min_amount) = &asset_amount.amount {
-        (pool.amount_to_shares(min_amount.0, true), min_amount.0)
+        (
+            pool.amount_to_shares(min_amount.0, !inverse_round_direction),
+            min_amount.0,
+        )
     } else if let Some(max_amount) = &asset_amount.max_amount {
-        let shares = std::cmp::min(available_shares, pool.amount_to_shares(max_amount.0, true));
+        let shares = std::cmp::min(
+            available_shares,
+            pool.amount_to_shares(max_amount.0, !inverse_round_direction),
+        );
         (
             shares,
-            std::cmp::min(pool.shares_to_amount(shares, false), max_amount.0),
+            std::cmp::min(
+                pool.shares_to_amount(shares, inverse_round_direction),
+                max_amount.0,
+            ),
         )
     } else {
         (
             available_shares,
-            pool.shares_to_amount(available_shares, false),
+            pool.shares_to_amount(available_shares, inverse_round_direction),
         )
     };
     assert!(shares.0 > 0, "Shares can't be 0");

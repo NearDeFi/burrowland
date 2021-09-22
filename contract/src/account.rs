@@ -130,24 +130,12 @@ pub struct BorrowedAsset {
     pub shares: Shares,
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct AccountView {
-    pub num_assets: u32,
-    pub collateral: Vec<CollateralAssetView>,
-    pub borrowed: Vec<BorrowedAssetView>,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct CollateralAssetView {
-    pub asset_id: TokenAccountId,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct BorrowedAssetView {
-    pub asset_id: TokenAccountId,
+#[near_bindgen]
+impl Contract {
+    pub fn get_account(&self, account_id: ValidAccountId) -> Option<AccountDetailedView> {
+        self.internal_get_account(account_id.as_ref())
+            .map(|account| self.account_into_detailed_view(account))
+    }
 }
 
 impl Contract {
