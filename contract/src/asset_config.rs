@@ -3,25 +3,27 @@ use crate::*;
 const MAX_POS: u32 = 10000;
 const MAX_RATIO: u32 = 10000;
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct AssetConfig {
     // E.g. 25% from borrowed interests goes to the reserve.
     pub reserve_ratio: u32,
     // E.g. 80% of assets are borrowed.
     pub opt_utilization_pos: u32,
-    // Rate in the magic rate formula with BD denominator at opt_utilization_pos
+    // Rate in the magic rate formula with BigDecimal denominator at opt_utilization_pos
     pub opt_utilization_rate: LowU128,
     // Rate at 100% utilization
     pub max_utilization_rate: LowU128,
-    // collateral to loan ratio. 40% means you can borrow 40% of DAI for supplying 100% of NEAR.
-    pub collateral_ratio: u32,
+    // Volatility ratio.
+    // E.g. 40% for NEAR and 90% for DAI means you can borrow 40% * 90% of DAI for supplying NEAR.
+    pub volatility_ratio: u32,
 }
 
 impl AssetConfig {
     pub fn assert_valid(&self) {
         assert!(self.reserve_ratio <= MAX_RATIO);
         assert!(self.opt_utilization_pos < MAX_POS);
-        assert!(self.opt_utilization_rate <= self.max_utilization_rate);
+        assert!(self.opt_utilization_rate.0 <= self.max_utilization_rate.0);
     }
 
     pub fn get_rate(

@@ -25,23 +25,12 @@ pub enum Action {
     },
 }
 
-#[near_bindgen]
-impl Contract {
-    #[payable]
-    pub fn execute(&mut self, actions: Vec<Action>) {
-        assert_one_yocto();
-        let account_id = env::predecessor_account_id();
-        let mut account = self.internal_unwrap_account(&account_id);
-        self.internal_execute(&account_id, &mut account, actions, Prices::new());
-        self.internal_set_account(&account_id, account);
-    }
-}
-
 impl Contract {
     pub fn internal_execute(
         &mut self,
         account_id: &AccountId,
         account: &mut Account,
+        storage: &mut Storage,
         actions: Vec<Action>,
         prices: Prices,
     ) {
@@ -62,7 +51,7 @@ impl Contract {
                     let mut account_asset =
                         account.internal_get_asset_or_default(&asset_amount.token_account_id);
                     self.internal_decrease_collateral(&mut account_asset, account, &asset_amount);
-                    account.set_asset(&asset_amount.token_account_id, account_asset);
+                    account.internal_set_asset(&asset_amount.token_account_id, account_asset);
                 }
                 Action::Borrow(asset_amount) => {
                     need_number_check = true;
@@ -73,7 +62,7 @@ impl Contract {
                     let mut account_asset =
                         account.internal_unwrap_asset(&asset_amount.token_account_id);
                     let amount = self.internal_repay(&mut account_asset, account, &asset_amount);
-                    account.set_asset(&asset_amount.token_account_id, account_asset);
+                    account.internal_set_asset(&asset_amount.token_account_id, account_asset);
                 }
                 Action::Liquidate {
                     account_id: liquidation_account_id,
@@ -88,6 +77,7 @@ impl Contract {
                     assert!(!in_assets.is_empty() && !out_assets.is_empty());
                     self.internal_liquidate(
                         account,
+                        storage,
                         &prices,
                         liquidation_account_id,
                         in_assets,
@@ -116,7 +106,7 @@ impl Contract {
         let shares: Shares = asset.supplied.amount_to_shares(amount, false);
 
         account_asset.deposit_shares(shares);
-        account.set_asset(&token_account_id, account_asset);
+        account.internal_set_asset(&token_account_id, account_asset);
 
         asset.supplied.deposit(shares, amount);
         self.internal_set_asset(token_account_id, asset);
@@ -136,7 +126,7 @@ impl Contract {
             asset_amount_to_shares(&asset.supplied, account_asset.shares, &asset_amount, false);
 
         account_asset.withdraw_shares(shares);
-        account.set_asset(&asset_amount.token_account_id, account_asset);
+        account.internal_set_asset(&asset_amount.token_account_id, account_asset);
 
         asset.supplied.withdraw(shares, amount);
         self.internal_set_asset(&asset_amount.token_account_id, asset);
@@ -156,7 +146,7 @@ impl Contract {
             asset_amount_to_shares(&asset.supplied, account_asset.shares, &asset_amount, false);
 
         account_asset.withdraw_shares(shares);
-        account.set_asset(&asset_amount.token_account_id, account_asset);
+        account.internal_set_asset(&asset_amount.token_account_id, account_asset);
 
         account.increase_collateral(&asset_amount.token_account_id, shares);
 
@@ -208,7 +198,7 @@ impl Contract {
         account.increase_borrowed(&asset_amount.token_account_id, borrowed_shares);
 
         account_asset.deposit_shares(supplied_shares);
-        account.set_asset(&asset_amount.token_account_id, account_asset);
+        account.internal_set_asset(&asset_amount.token_account_id, account_asset);
 
         amount
     }
@@ -231,7 +221,7 @@ impl Contract {
         );
 
         let mut supplied_shares = asset.supplied.amount_to_shares(amount, true);
-        if supplied_shares > account_asset.shares {
+        if supplied_shares.0 > account_asset.shares.0 {
             supplied_shares = account_asset.shares;
             amount = asset.supplied.shares_to_amount(supplied_shares, false);
             if let Some(min_amount) = &asset_amount.amount {
@@ -241,7 +231,7 @@ impl Contract {
 
             borrowed_shares = asset.borrowed.amount_to_shares(amount, false);
             assert!(borrowed_shares.0 > 0, "Shares can't be 0");
-            assert!(borrowed_shares <= available_borrowed_shares);
+            assert!(borrowed_shares.0 <= available_borrowed_shares.0);
         }
 
         asset.supplied.withdraw(supplied_shares, amount);
@@ -258,12 +248,14 @@ impl Contract {
     pub fn internal_liquidate(
         &mut self,
         account: &mut Account,
+        storage: &mut Storage,
         prices: &Prices,
         liquidation_account_id: ValidAccountId,
         in_assets: Vec<AssetAmount>,
         out_assets: Vec<AssetAmount>,
     ) {
-        let mut liquidation_account = self.internal_unwrap_account(liquidation_account_id.as_ref());
+        let (mut liquidation_account, liquidation_storage) =
+            self.internal_unwrap_account_with_storage(liquidation_account_id.as_ref());
 
         let max_discount = self.compute_max_discount(&liquidation_account, &prices);
         assert!(
@@ -278,7 +270,7 @@ impl Contract {
             let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_account_id);
             let amount =
                 self.internal_repay(&mut account_asset, &mut liquidation_account, &asset_amount);
-            account.set_asset(&asset_amount.token_account_id, account_asset);
+            account.internal_set_asset(&asset_amount.token_account_id, account_asset);
 
             borrowed_repaid_sum = borrowed_repaid_sum
                 + BigDecimal::from_balance_price(
@@ -295,7 +287,7 @@ impl Contract {
                 &mut liquidation_account,
                 &asset_amount,
             );
-            account.set_asset(&asset_amount.token_account_id, account_asset);
+            account.internal_set_asset(&asset_amount.token_account_id, account_asset);
 
             collateral_taken_sum = collateral_taken_sum
                 + BigDecimal::from_balance_price(
@@ -304,31 +296,11 @@ impl Contract {
                 );
         }
 
-        // Backed loan = 100 NEAR * 10$ = 1000$
-        // Collateral: 100 NEAR * 10$ * 40% = 400$
-        // Borrowed: 500 DAI * 1$ = 500$
-        // Max discount: 25% / 2 = 12.5%
-
-        // Liquidation:
-        // Repay dept: 200 DAI * 1$ = 200$
-        // Take collateral: 22.85 NEAR * 10$ = 228.5$
-
-        // discounted_collateral_taken = collateral_taken * (1 - max_discount) = 199.9375
-
-        // New balance:
-        // Backed loan = 77.15 NEAR * 10$ = 771.5$
-        // Collateral: 77.15 NEAR * 10$ * 40% = 308.6$
-        // Borrowed: 300 DAI * 1$ = 300$
-        // Max discount: 0%
-
-        if max_discount < BigDecimal::one() {
-            let discounted_collateral_taken =
-                collateral_taken_sum * (BigDecimal::one() - max_discount);
-            assert!(
-                discounted_collateral_taken <= borrowed_repaid_sum,
-                "Not enough balances repaid"
-            );
-        }
+        let discounted_collateral_taken = collateral_taken_sum * (BigDecimal::one() - max_discount);
+        assert!(
+            discounted_collateral_taken <= borrowed_repaid_sum,
+            "Not enough balances repaid"
+        );
 
         let new_max_discount = self.compute_max_discount(&liquidation_account, &prices);
         assert!(
@@ -336,7 +308,17 @@ impl Contract {
             "The liquidation amount is too large. The liquidation account should stay in risk"
         );
 
-        self.internal_set_account(liquidation_account_id.as_ref(), liquidation_account);
+        // NOTE: This method can only decrease storage, by repaying some burrowed assets and taking some
+        // collateral.
+        let released_bytes = env::storage_usage() - liquidation_storage.initial_storage_usage;
+        // We have to adjust the initial_storage_usage for the acting account to not double count
+        // the released bytes, since these released bytes belongs to the liquidation account.
+        storage.initial_storage_usage += released_bytes;
+        self.internal_set_account(
+            liquidation_account_id.as_ref(),
+            liquidation_account,
+            liquidation_storage,
+        );
     }
 
     pub fn compute_max_discount(&self, account: &Account, prices: &Prices) -> BigDecimal {
@@ -350,21 +332,20 @@ impl Contract {
                     balance,
                     prices.get_unwrap(&c.token_account_id),
                 )
-                .mul_ratio(asset.config.collateral_ratio)
+                .mul_ratio(asset.config.volatility_ratio)
             });
 
         let borrowed_sum = account.borrowed.iter().fold(BigDecimal::zero(), |sum, b| {
             let asset = self.internal_unwrap_asset(&b.token_account_id);
             let balance = asset.borrowed.shares_to_amount(b.shares, true);
             sum + BigDecimal::from_balance_price(balance, prices.get_unwrap(&b.token_account_id))
+                .mul_ratio(asset.config.volatility_ratio)
         });
 
         if borrowed_sum <= collateral_sum {
             BigDecimal::zero()
-        } else if collateral_sum == BigDecimal::zero() {
-            BigDecimal::one()
         } else {
-            (borrowed_sum - collateral_sum) / collateral_sum / BigDecimal::from(2u32)
+            (borrowed_sum - collateral_sum) / borrowed_sum / BigDecimal::from(2u32)
         }
     }
 }
@@ -382,9 +363,11 @@ fn asset_amount_to_shares(
         )
     } else if let Some(max_amount) = &asset_amount.max_amount {
         let shares = std::cmp::min(
-            available_shares,
-            pool.amount_to_shares(max_amount.0, !inverse_round_direction),
-        );
+            available_shares.0,
+            pool.amount_to_shares(max_amount.0, !inverse_round_direction)
+                .0,
+        )
+        .into();
         (
             shares,
             std::cmp::min(
@@ -401,4 +384,22 @@ fn asset_amount_to_shares(
     assert!(shares.0 > 0, "Shares can't be 0");
     assert!(amount > 0, "Amount can't be 0");
     (shares, amount)
+}
+
+#[near_bindgen]
+impl Contract {
+    #[payable]
+    pub fn execute(&mut self, actions: Vec<Action>) {
+        assert_one_yocto();
+        let account_id = env::predecessor_account_id();
+        let (mut account, mut storage) = self.internal_unwrap_account_with_storage(&account_id);
+        self.internal_execute(
+            &account_id,
+            &mut account,
+            &mut storage,
+            actions,
+            Prices::new(),
+        );
+        self.internal_set_account(&account_id, account, storage);
+    }
 }

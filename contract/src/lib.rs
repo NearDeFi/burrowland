@@ -20,9 +20,7 @@ use crate::asset::*;
 use crate::asset_config::*;
 use crate::big_decimal::*;
 use crate::config::*;
-use crate::fungible_token::*;
 use crate::pool::*;
-use crate::price_receiver::*;
 use crate::prices::*;
 use crate::storage::*;
 use crate::utils::*;
@@ -31,7 +29,7 @@ use crate::views::*;
 use common::*;
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LazyOption, LookupMap, UnorderedMap, UnorderedSet, Vector};
+use near_sdk::collections::{LazyOption, LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::{ValidAccountId, WrappedBalance};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{

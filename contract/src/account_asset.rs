@@ -26,7 +26,7 @@ impl From<AccountAsset> for VAccountAsset {
 
 impl AccountAsset {
     pub fn new() -> Self {
-        Self { shares: Shares(0) }
+        Self { shares: 0.into() }
     }
 
     pub fn deposit_shares(&mut self, shares: Shares) {
@@ -64,7 +64,11 @@ impl Account {
             .unwrap_or_else(AccountAsset::new)
     }
 
-    pub fn set_asset(&mut self, token_account_id: &TokenAccountId, account_asset: AccountAsset) {
+    pub fn internal_set_asset(
+        &mut self,
+        token_account_id: &TokenAccountId,
+        account_asset: AccountAsset,
+    ) {
         if account_asset.is_empty() {
             self.supplied.remove(token_account_id);
         } else {

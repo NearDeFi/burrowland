@@ -1,4 +1,5 @@
 use crate::*;
+use near_sdk::json_types::U128;
 use std::cmp::Ordering;
 use std::ops::{Add, Div, Mul, Sub};
 
@@ -16,8 +17,7 @@ const NUM_DECIMALS: u8 = 27;
 const BIG_DIVISOR: u128 = 10u128.pow(NUM_DECIMALS as u32);
 const HALF_DIVISOR: u128 = BIG_DIVISOR / 2;
 
-#[derive(Copy, Clone, BorshSerialize, BorshDeserialize, PartialEq, PartialOrd)]
-pub struct LowU128(u128);
+pub type LowU128 = U128;
 
 #[derive(Copy, Clone)]
 pub struct BigDecimal(U384);
@@ -80,7 +80,7 @@ impl From<LowU128> for BigDecimal {
 
 impl From<BigDecimal> for LowU128 {
     fn from(bd: BigDecimal) -> Self {
-        LowU128(bd.0.low_u128())
+        Self(bd.0.low_u128())
     }
 }
 
@@ -172,9 +172,9 @@ mod tests {
     // Number of milliseconds in a regular year.
     const N: u64 = 31536000000;
     // X = 2
-    const LOW_X: LowU128 = LowU128(2000000000000000000000000000);
+    const LOW_X: LowU128 = U128(2000000000000000000000000000);
     // R ** N = X. So R = X ** (1/N)
-    const LOW_R: LowU128 = LowU128(1000000000021979552909930328);
+    const LOW_R: LowU128 = U128(1000000000021979552909930328);
 
     fn b(a: u128) -> BigDecimal {
         BigDecimal::from(a)

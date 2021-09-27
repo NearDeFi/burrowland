@@ -1,7 +1,11 @@
 use crate::*;
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct Account {
+    /// A copy of an account ID. Saves one storage_read when iterating on accounts.
+    pub account_id: AccountId,
+    #[serde(skip_serializing)]
     pub supplied: UnorderedMap<TokenAccountId, VAccountAsset>,
     pub collateral: Vec<CollateralAsset>,
     pub borrowed: Vec<BorrowedAsset>,
@@ -29,6 +33,7 @@ impl From<Account> for VAccount {
 impl Account {
     pub fn new(account_id: &AccountId) -> Self {
         Self {
+            account_id: account_id.clone(),
             supplied: UnorderedMap::new(StorageKey::AccountAssets {
                 account_id: account_id.clone(),
             }),
@@ -118,16 +123,49 @@ impl Account {
     }
 }
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct CollateralAsset {
     pub token_account_id: TokenAccountId,
     pub shares: Shares,
 }
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct BorrowedAsset {
     pub token_account_id: TokenAccountId,
     pub shares: Shares,
+}
+
+impl Contract {
+    pub fn internal_get_account(&self, account_id: &AccountId) -> Option<Account> {
+        self.accounts.get(account_id).map(|o| o.into())
+    }
+
+    pub fn internal_unwrap_account_with_storage(
+        &self,
+        account_id: &AccountId,
+    ) -> (Account, Storage) {
+        (
+            self.internal_unwrap_account(account_id),
+            self.internal_unwrap_storage(account_id),
+        )
+    }
+
+    pub fn internal_unwrap_account(&self, account_id: &AccountId) -> Account {
+        self.internal_get_account(account_id)
+            .expect("Account is not registered")
+    }
+
+    pub fn internal_set_account(
+        &mut self,
+        account_id: &AccountId,
+        account: Account,
+        storage: Storage,
+    ) {
+        self.accounts.insert(account_id, &account.into());
+        self.internal_set_storage(account_id, storage);
+    }
 }
 
 #[near_bindgen]
@@ -136,19 +174,14 @@ impl Contract {
         self.internal_get_account(account_id.as_ref())
             .map(|account| self.account_into_detailed_view(account))
     }
-}
 
-impl Contract {
-    pub fn internal_get_account(&self, account_id: &AccountId) -> Option<Account> {
-        self.accounts.get(account_id).map(|o| o.into())
-    }
-
-    pub fn internal_unwrap_account(&self, account_id: &AccountId) -> Account {
-        self.internal_get_account(account_id)
-            .expect("Account is not registered")
-    }
-
-    pub fn internal_set_account(&mut self, account_id: &AccountId, account: Account) {
-        self.accounts.insert(account_id, &account.into());
+    /// This method is used to iterate on the accounts for liquidation
+    pub fn get_accounts_paged(&self, from_index: Option<u64>, limit: Option<u64>) -> Vec<Account> {
+        let values = self.accounts.values_as_vector();
+        let from_index = from_index.unwrap_or(0);
+        let limit = limit.unwrap_or(values.len());
+        (from_index..std::cmp::min(values.len(), limit))
+            .map(|index| values.get(index).unwrap().into())
+            .collect()
     }
 }

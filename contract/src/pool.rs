@@ -1,26 +1,26 @@
 use crate::*;
+use near_sdk::json_types::U128;
 
-#[derive(
-    BorshSerialize, BorshDeserialize, Copy, Clone, Default, Debug, PartialEq, PartialOrd, Eq, Ord,
-)]
-pub struct Shares(pub Balance);
+pub type Shares = U128;
 
-#[derive(BorshSerialize, BorshDeserialize, Clone)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone)]
+#[serde(crate = "near_sdk::serde")]
 pub struct Pool {
     pub shares: Shares,
+    #[serde(with = "u128_dec_format")]
     pub balance: Balance,
 }
 
 impl Pool {
     pub fn new() -> Self {
         Self {
-            shares: Shares(0),
+            shares: 0.into(),
             balance: 0,
         }
     }
 
     pub fn amount_to_shares(&self, amount: Balance, round_up: bool) -> Shares {
-        Shares(if self.balance == 0 {
+        let shares = if self.balance == 0 {
             amount
         } else {
             let extra = if round_up {
@@ -30,7 +30,8 @@ impl Pool {
             };
             ((U256::from(self.shares.0) * U256::from(amount) + extra) / U256::from(self.balance))
                 .as_u128()
-        })
+        };
+        shares.into()
     }
 
     pub fn shares_to_amount(&self, shares: Shares, round_up: bool) -> Balance {

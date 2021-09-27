@@ -21,8 +21,8 @@ impl FungibleTokenReceiver for Contract {
         amount: U128,
         msg: String,
     ) -> PromiseOrValue<U128> {
-        // NOTE: We need to be careful that only whitelisted tokens can call this method with a
-        // given set of actions.
+        // TODO: We need to be careful that only whitelisted tokens can call this method with a
+        //     given set of actions.
         let token_account_id = env::predecessor_account_id();
 
         let actions: Vec<Action> = if msg.is_empty() {
@@ -33,10 +33,17 @@ impl FungibleTokenReceiver for Contract {
             }
         };
 
-        let mut account = self.internal_unwrap_account(sender_id.as_ref());
+        let (mut account, mut storage) =
+            self.internal_unwrap_account_with_storage(sender_id.as_ref());
         self.internal_deposit(&mut account, &token_account_id, amount.0);
-        self.internal_execute(sender_id.as_ref(), &mut account, actions, Prices::new());
-        self.internal_set_account(sender_id.as_ref(), account);
+        self.internal_execute(
+            sender_id.as_ref(),
+            &mut account,
+            &mut storage,
+            actions,
+            Prices::new(),
+        );
+        self.internal_set_account(sender_id.as_ref(), account, storage);
 
         PromiseOrValue::Value(U128(0))
     }
@@ -98,9 +105,9 @@ impl ExtSelf for Contract {
     ) -> bool {
         let promise_success = is_promise_success();
         if !promise_success {
-            let mut account = self.internal_unwrap_account(&account_id);
+            let (mut account, storage) = self.internal_unwrap_account_with_storage(&account_id);
             self.internal_deposit(&mut account, &token_account_id, amount.0);
-            self.internal_set_account(&account_id, account);
+            self.internal_set_account(&account_id, account, storage);
         }
         promise_success
     }

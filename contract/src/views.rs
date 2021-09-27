@@ -2,15 +2,26 @@ use crate::*;
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
+pub struct AssetView {
+    pub token_account_id: TokenAccountId,
+    #[serde(with = "u128_dec_format")]
+    pub balance: Balance,
+    pub shares: Shares,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct AccountDetailedView {
-    pub supplied: Vec<(TokenAccountId, WrappedBalance)>,
-    pub collateral: Vec<(TokenAccountId, WrappedBalance)>,
-    pub borrowed: Vec<(TokenAccountId, WrappedBalance)>,
+    pub account_id: AccountId,
+    pub supplied: Vec<AssetView>,
+    pub collateral: Vec<AssetView>,
+    pub borrowed: Vec<AssetView>,
 }
 
 impl Contract {
     pub fn account_into_detailed_view(&self, account: Account) -> AccountDetailedView {
         AccountDetailedView {
+            account_id: account.account_id,
             supplied: unordered_map_pagination(&account.supplied, None, None)
                 .into_iter()
                 .map(|(token_account_id, AccountAsset { shares })| {
@@ -18,7 +29,11 @@ impl Contract {
                         .internal_unwrap_asset(&token_account_id)
                         .supplied
                         .shares_to_amount(shares, false);
-                    (token_account_id, balance.into())
+                    AssetView {
+                        token_account_id,
+                        balance,
+                        shares,
+                    }
                 })
                 .collect(),
             collateral: account
@@ -33,7 +48,11 @@ impl Contract {
                             .internal_unwrap_asset(&token_account_id)
                             .supplied
                             .shares_to_amount(shares, false);
-                        (token_account_id, balance.into())
+                        AssetView {
+                            token_account_id,
+                            balance,
+                            shares,
+                        }
                     },
                 )
                 .collect(),
@@ -49,7 +68,11 @@ impl Contract {
                             .internal_unwrap_asset(&token_account_id)
                             .borrowed
                             .shares_to_amount(shares, true);
-                        (token_account_id, balance.into())
+                        AssetView {
+                            token_account_id,
+                            balance,
+                            shares,
+                        }
                     },
                 )
                 .collect(),
