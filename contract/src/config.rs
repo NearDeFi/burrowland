@@ -40,6 +40,22 @@ impl Contract {
     }
 
     #[payable]
+    pub fn debug_nuke_state(&mut self) {
+        assert_one_yocto();
+        self.assert_owner();
+        for token_account_id in self.asset_ids.to_vec() {
+            self.assets.remove(&token_account_id);
+        }
+        self.asset_ids.clear();
+        for account in self.accounts.values() {
+            let mut account: Account = account.into();
+            self.storage.remove(&account.account_id);
+            account.supplied.clear();
+        }
+        self.accounts.clear();
+    }
+
+    #[payable]
     pub fn add_asset(&mut self, token_account_id: ValidAccountId, asset_config: AssetConfig) {
         assert_one_yocto();
         asset_config.assert_valid();
@@ -50,6 +66,7 @@ impl Contract {
             Asset::new(env::block_timestamp(), asset_config),
         )
     }
+
     #[payable]
     pub fn update_asset(&mut self, token_account_id: ValidAccountId, asset_config: AssetConfig) {
         assert_one_yocto();

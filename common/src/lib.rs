@@ -8,7 +8,7 @@ pub type DurationSec = u32;
 
 pub const TGAS: Gas = 10u64.pow(12);
 pub const NO_DEPOSIT: Balance = 0;
-pub const ONE_YOCTO: Balance = 0;
+pub const ONE_YOCTO: Balance = 1;
 
 const MAX_VALID_DECIMALS: u8 = 77;
 

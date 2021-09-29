@@ -60,18 +60,18 @@ impl Asset {
     // r = n * ((x ** (1 / n)) - 1)
     // n = in millis
     fn compound(&mut self, time_diff_ms: Duration) {
-        let total_supplied_balance = self.supplied.balance + self.reserved;
         let rate = self.get_rate();
-        let interest = rate
-            .pow(time_diff_ms)
-            .round_mul_u128(total_supplied_balance);
+        log!("Rate is {}", rate);
+        let interest =
+            rate.pow(time_diff_ms).round_mul_u128(self.borrowed.balance) - self.borrowed.balance;
+        log!("Interest added: {}", interest);
         let reserved = ratio(interest, self.config.reserve_ratio);
         self.supplied.balance += interest - reserved;
         self.reserved += reserved;
         self.borrowed.balance += interest;
     }
 
-    pub fn touch(&mut self) {
+    pub fn update(&mut self) {
         let timestamp = env::block_timestamp();
         let time_diff_ms = nano_to_ms(timestamp - self.last_update_timestamp);
         if time_diff_ms > 0 {
@@ -93,7 +93,11 @@ impl Contract {
     }
 
     pub fn internal_get_asset(&self, token_account_id: &TokenAccountId) -> Option<Asset> {
-        self.assets.get(token_account_id).map(|o| o.into())
+        self.assets.get(token_account_id).map(|o| {
+            let mut asset: Asset = o.into();
+            asset.update();
+            asset
+        })
     }
 
     pub fn internal_set_asset(&mut self, token_account_id: &TokenAccountId, asset: Asset) {
@@ -121,6 +125,24 @@ impl Contract {
     }
 
     pub fn get_assets_paged(
+        &self,
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    ) -> Vec<(TokenAccountId, Asset)> {
+        let keys = self.asset_ids.as_vector();
+        let from_index = from_index.unwrap_or(0);
+        let limit = limit.unwrap_or(keys.len());
+        (from_index..std::cmp::min(keys.len(), limit))
+            .map(|index| {
+                let key = keys.get(index).unwrap();
+                let mut asset: Asset = self.assets.get(&key).unwrap().into();
+                asset.update();
+                (key, asset)
+            })
+            .collect()
+    }
+
+    pub fn debug_get_assets_paged(
         &self,
         from_index: Option<u64>,
         limit: Option<u64>,

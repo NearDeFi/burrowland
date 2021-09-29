@@ -33,8 +33,8 @@ use near_sdk::collections::{LazyOption, LookupMap, UnorderedMap, UnorderedSet};
 use near_sdk::json_types::{ValidAccountId, WrappedBalance};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
-    assert_one_yocto, env, ext_contract, near_bindgen, AccountId, Balance, BorshStorageKey, Gas,
-    PanicOnDefault, Promise, Timestamp,
+    assert_one_yocto, env, ext_contract, log, near_bindgen, AccountId, Balance, BorshStorageKey,
+    Gas, PanicOnDefault, Promise, Timestamp,
 };
 use std::collections::HashMap;
 

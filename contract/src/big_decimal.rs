@@ -1,6 +1,7 @@
 use crate::*;
 use near_sdk::json_types::U128;
 use std::cmp::Ordering;
+use std::fmt::{Display, Formatter};
 use std::ops::{Add, Div, Mul, Sub};
 
 uint::construct_uint!(
@@ -21,6 +22,14 @@ pub type LowU128 = U128;
 
 #[derive(Copy, Clone)]
 pub struct BigDecimal(U384);
+
+impl Display for BigDecimal {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let a = self.0 / U384::from(BIG_DIVISOR);
+        let b = self.0 - a * U384::from(BIG_DIVISOR);
+        write!(f, "{}.{:027}", a, b.as_u128())
+    }
+}
 
 impl From<u128> for BigDecimal {
     fn from(a: u128) -> Self {
