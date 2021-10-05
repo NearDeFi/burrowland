@@ -47,33 +47,24 @@ impl AccountAsset {
 }
 
 impl Account {
-    pub fn internal_unwrap_asset(&self, token_account_id: &TokenAccountId) -> AccountAsset {
-        self.internal_get_asset(token_account_id)
-            .expect("Asset not found")
+    pub fn internal_unwrap_asset(&self, token_id: &TokenId) -> AccountAsset {
+        self.internal_get_asset(token_id).expect("Asset not found")
     }
 
-    pub fn internal_get_asset(&self, token_account_id: &TokenAccountId) -> Option<AccountAsset> {
-        self.supplied.get(token_account_id).map(|o| o.into())
+    pub fn internal_get_asset(&self, token_id: &TokenId) -> Option<AccountAsset> {
+        self.supplied.get(token_id).map(|o| o.into())
     }
 
-    pub fn internal_get_asset_or_default(
-        &mut self,
-        token_account_id: &TokenAccountId,
-    ) -> AccountAsset {
-        self.internal_get_asset(token_account_id)
+    pub fn internal_get_asset_or_default(&mut self, token_id: &TokenId) -> AccountAsset {
+        self.internal_get_asset(token_id)
             .unwrap_or_else(AccountAsset::new)
     }
 
-    pub fn internal_set_asset(
-        &mut self,
-        token_account_id: &TokenAccountId,
-        account_asset: AccountAsset,
-    ) {
+    pub fn internal_set_asset(&mut self, token_id: &TokenId, account_asset: AccountAsset) {
         if account_asset.is_empty() {
-            self.supplied.remove(token_account_id);
+            self.supplied.remove(token_id);
         } else {
-            self.supplied
-                .insert(token_account_id, &account_asset.into());
+            self.supplied.insert(token_id, &account_asset.into());
         }
     }
 }

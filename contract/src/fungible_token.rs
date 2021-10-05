@@ -23,7 +23,7 @@ impl FungibleTokenReceiver for Contract {
     ) -> PromiseOrValue<U128> {
         // TODO: We need to be careful that only whitelisted tokens can call this method with a
         //     given set of actions.
-        let token_account_id = env::predecessor_account_id();
+        let token_id = env::predecessor_account_id();
 
         let actions: Vec<Action> = if msg.is_empty() {
             vec![]
@@ -35,7 +35,7 @@ impl FungibleTokenReceiver for Contract {
 
         let (mut account, mut storage) =
             self.internal_unwrap_account_with_storage(sender_id.as_ref());
-        self.internal_deposit(&mut account, &token_account_id, amount.0);
+        self.internal_deposit(&mut account, &token_id, amount.0);
         self.internal_execute(
             sender_id.as_ref(),
             &mut account,
@@ -53,20 +53,20 @@ impl Contract {
     pub fn internal_ft_transfer(
         &mut self,
         account_id: &AccountId,
-        token_account_id: &TokenAccountId,
+        token_id: &TokenId,
         amount: Balance,
     ) -> Promise {
         ext_fungible_token::ft_transfer(
             account_id.clone(),
             amount.into(),
             None,
-            token_account_id,
+            token_id,
             ONE_YOCTO,
             GAS_FOR_FT_TRANSFER,
         )
         .then(ext_self::after_ft_transfer(
             account_id.clone(),
-            token_account_id.clone(),
+            token_id.clone(),
             amount.into(),
             &env::current_account_id(),
             NO_DEPOSIT,
@@ -77,21 +77,13 @@ impl Contract {
 
 #[ext_contract(ext_self)]
 trait ExtSelf {
-    fn after_ft_transfer(
-        &mut self,
-        account_id: AccountId,
-        token_account_id: TokenAccountId,
-        amount: U128,
-    ) -> bool;
+    fn after_ft_transfer(&mut self, account_id: AccountId, token_id: TokenId, amount: U128)
+        -> bool;
 }
 
 trait ExtSelf {
-    fn after_ft_transfer(
-        &mut self,
-        account_id: AccountId,
-        token_account_id: TokenAccountId,
-        amount: U128,
-    ) -> bool;
+    fn after_ft_transfer(&mut self, account_id: AccountId, token_id: TokenId, amount: U128)
+        -> bool;
 }
 
 #[near_bindgen]
@@ -100,13 +92,13 @@ impl ExtSelf for Contract {
     fn after_ft_transfer(
         &mut self,
         account_id: AccountId,
-        token_account_id: TokenAccountId,
+        token_id: TokenId,
         amount: U128,
     ) -> bool {
         let promise_success = is_promise_success();
         if !promise_success {
             let (mut account, storage) = self.internal_unwrap_account_with_storage(&account_id);
-            self.internal_deposit(&mut account, &token_account_id, amount.0);
+            self.internal_deposit(&mut account, &token_id, amount.0);
             self.internal_set_account(&account_id, account, storage);
         }
         promise_success

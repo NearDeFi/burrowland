@@ -43,8 +43,8 @@ impl Contract {
     pub fn debug_nuke_state(&mut self) {
         assert_one_yocto();
         self.assert_owner();
-        for token_account_id in self.asset_ids.to_vec() {
-            self.assets.remove(&token_account_id);
+        for token_id in self.asset_ids.to_vec() {
+            self.assets.remove(&token_id);
         }
         self.asset_ids.clear();
         for account in self.accounts.values() {
@@ -56,24 +56,24 @@ impl Contract {
     }
 
     #[payable]
-    pub fn add_asset(&mut self, token_account_id: ValidAccountId, asset_config: AssetConfig) {
+    pub fn add_asset(&mut self, token_id: ValidAccountId, asset_config: AssetConfig) {
         assert_one_yocto();
         asset_config.assert_valid();
         self.assert_owner();
-        assert!(self.asset_ids.insert(token_account_id.as_ref()));
+        assert!(self.asset_ids.insert(token_id.as_ref()));
         self.internal_set_asset(
-            token_account_id.as_ref(),
+            token_id.as_ref(),
             Asset::new(env::block_timestamp(), asset_config),
         )
     }
 
     #[payable]
-    pub fn update_asset(&mut self, token_account_id: ValidAccountId, asset_config: AssetConfig) {
+    pub fn update_asset(&mut self, token_id: ValidAccountId, asset_config: AssetConfig) {
         assert_one_yocto();
         asset_config.assert_valid();
         self.assert_owner();
-        let mut asset = self.internal_unwrap_asset(token_account_id.as_ref());
+        let mut asset = self.internal_unwrap_asset(token_id.as_ref());
         asset.config = asset_config;
-        self.internal_set_asset(token_account_id.as_ref(), asset);
+        self.internal_set_asset(token_id.as_ref(), asset);
     }
 }

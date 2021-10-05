@@ -1,7 +1,7 @@
 use crate::*;
 
 pub struct Prices {
-    prices: HashMap<TokenAccountId, Price>,
+    prices: HashMap<TokenId, Price>,
 }
 
 impl Prices {
@@ -11,10 +11,8 @@ impl Prices {
         }
     }
 
-    pub fn get_unwrap(&self, token_account_id: &TokenAccountId) -> &Price {
-        self.prices
-            .get(token_account_id)
-            .expect("Asset price is missing")
+    pub fn get_unwrap(&self, token_id: &TokenId) -> &Price {
+        self.prices.get(token_id).expect("Asset price is missing")
     }
 }
 

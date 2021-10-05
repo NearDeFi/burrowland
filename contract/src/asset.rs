@@ -87,39 +87,35 @@ impl Asset {
 }
 
 impl Contract {
-    pub fn internal_unwrap_asset(&self, token_account_id: &TokenAccountId) -> Asset {
-        self.internal_get_asset(token_account_id)
-            .expect("Asset not found")
+    pub fn internal_unwrap_asset(&self, token_id: &TokenId) -> Asset {
+        self.internal_get_asset(token_id).expect("Asset not found")
     }
 
-    pub fn internal_get_asset(&self, token_account_id: &TokenAccountId) -> Option<Asset> {
-        self.assets.get(token_account_id).map(|o| {
+    pub fn internal_get_asset(&self, token_id: &TokenId) -> Option<Asset> {
+        self.assets.get(token_id).map(|o| {
             let mut asset: Asset = o.into();
             asset.update();
             asset
         })
     }
 
-    pub fn internal_set_asset(&mut self, token_account_id: &TokenAccountId, asset: Asset) {
-        self.assets.insert(token_account_id, &asset.into());
+    pub fn internal_set_asset(&mut self, token_id: &TokenId, asset: Asset) {
+        self.assets.insert(token_id, &asset.into());
     }
 }
 
 #[near_bindgen]
 impl Contract {
-    pub fn get_asset(&self, token_account_id: ValidAccountId) -> Option<Asset> {
-        self.internal_get_asset(token_account_id.as_ref())
+    pub fn get_asset(&self, token_id: ValidAccountId) -> Option<Asset> {
+        self.internal_get_asset(token_id.as_ref())
     }
 
-    pub fn get_assets(
-        &self,
-        token_account_ids: Vec<ValidAccountId>,
-    ) -> Vec<(TokenAccountId, Asset)> {
-        token_account_ids
+    pub fn get_assets(&self, token_ids: Vec<ValidAccountId>) -> Vec<(TokenId, Asset)> {
+        token_ids
             .into_iter()
-            .filter_map(|token_account_id| {
-                self.internal_get_asset(token_account_id.as_ref())
-                    .map(|asset| (token_account_id.into(), asset))
+            .filter_map(|token_id| {
+                self.internal_get_asset(token_id.as_ref())
+                    .map(|asset| (token_id.into(), asset))
             })
             .collect()
     }
@@ -128,7 +124,7 @@ impl Contract {
         &self,
         from_index: Option<u64>,
         limit: Option<u64>,
-    ) -> Vec<(TokenAccountId, Asset)> {
+    ) -> Vec<(TokenId, Asset)> {
         let keys = self.asset_ids.as_vector();
         let from_index = from_index.unwrap_or(0);
         let limit = limit.unwrap_or(keys.len());
@@ -146,7 +142,7 @@ impl Contract {
         &self,
         from_index: Option<u64>,
         limit: Option<u64>,
-    ) -> Vec<(TokenAccountId, Asset)> {
+    ) -> Vec<(TokenId, Asset)> {
         let keys = self.asset_ids.as_vector();
         let from_index = from_index.unwrap_or(0);
         let limit = limit.unwrap_or(keys.len());

@@ -2,7 +2,7 @@ use crate::*;
 
 const MAX_RATIO: u32 = 10000;
 
-pub(crate) type TokenAccountId = AccountId;
+pub(crate) type TokenId = AccountId;
 
 pub(crate) fn unordered_map_pagination<K, VV, V>(
     m: &UnorderedMap<K, VV>,

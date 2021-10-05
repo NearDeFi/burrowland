@@ -55,8 +55,8 @@ enum StorageKey {
 pub struct Contract {
     pub accounts: UnorderedMap<AccountId, VAccount>,
     pub storage: LookupMap<AccountId, VStorage>,
-    pub assets: LookupMap<TokenAccountId, VAsset>,
-    pub asset_ids: UnorderedSet<AccountId>,
+    pub assets: LookupMap<TokenId, VAsset>,
+    pub asset_ids: UnorderedSet<TokenId>,
     pub config: LazyOption<Config>,
 }
 

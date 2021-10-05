@@ -5,7 +5,7 @@ const MAX_NUM_ASSETS: usize = 8;
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AssetAmount {
-    pub token_account_id: TokenAccountId,
+    pub token_id: TokenId,
     pub amount: Option<WrappedBalance>,
     pub max_amount: Option<WrappedBalance>,
 }
@@ -40,7 +40,7 @@ impl Contract {
             match action {
                 Action::Withdraw(asset_amount) => {
                     let amount = self.internal_withdraw(account, &asset_amount);
-                    self.internal_ft_transfer(account_id, &asset_amount.token_account_id, amount);
+                    self.internal_ft_transfer(account_id, &asset_amount.token_id, amount);
                 }
                 Action::IncreaseCollateral(asset_amount) => {
                     need_number_check = true;
@@ -49,9 +49,9 @@ impl Contract {
                 Action::DecreaseCollateral(asset_amount) => {
                     need_risk_check = true;
                     let mut account_asset =
-                        account.internal_get_asset_or_default(&asset_amount.token_account_id);
+                        account.internal_get_asset_or_default(&asset_amount.token_id);
                     self.internal_decrease_collateral(&mut account_asset, account, &asset_amount);
-                    account.internal_set_asset(&asset_amount.token_account_id, account_asset);
+                    account.internal_set_asset(&asset_amount.token_id, account_asset);
                 }
                 Action::Borrow(asset_amount) => {
                     need_number_check = true;
@@ -59,10 +59,9 @@ impl Contract {
                     let amount = self.internal_borrow(account, &asset_amount);
                 }
                 Action::Repay(asset_amount) => {
-                    let mut account_asset =
-                        account.internal_unwrap_asset(&asset_amount.token_account_id);
+                    let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_id);
                     let amount = self.internal_repay(&mut account_asset, account, &asset_amount);
-                    account.internal_set_asset(&asset_amount.token_account_id, account_asset);
+                    account.internal_set_asset(&asset_amount.token_id, account_asset);
                 }
                 Action::Liquidate {
                     account_id: liquidation_account_id,
@@ -97,19 +96,19 @@ impl Contract {
     pub fn internal_deposit(
         &mut self,
         account: &mut Account,
-        token_account_id: &TokenAccountId,
+        token_id: &TokenId,
         amount: Balance,
     ) -> Shares {
-        let mut asset = self.internal_unwrap_asset(token_account_id);
-        let mut account_asset = account.internal_get_asset_or_default(token_account_id);
+        let mut asset = self.internal_unwrap_asset(token_id);
+        let mut account_asset = account.internal_get_asset_or_default(token_id);
 
         let shares: Shares = asset.supplied.amount_to_shares(amount, false);
 
         account_asset.deposit_shares(shares);
-        account.internal_set_asset(&token_account_id, account_asset);
+        account.internal_set_asset(&token_id, account_asset);
 
         asset.supplied.deposit(shares, amount);
-        self.internal_set_asset(token_account_id, asset);
+        self.internal_set_asset(token_id, asset);
 
         shares
     }
@@ -119,17 +118,17 @@ impl Contract {
         account: &mut Account,
         asset_amount: &AssetAmount,
     ) -> Balance {
-        let mut asset = self.internal_unwrap_asset(&asset_amount.token_account_id);
-        let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_account_id);
+        let mut asset = self.internal_unwrap_asset(&asset_amount.token_id);
+        let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_id);
 
         let (shares, amount) =
             asset_amount_to_shares(&asset.supplied, account_asset.shares, &asset_amount, false);
 
         account_asset.withdraw_shares(shares);
-        account.internal_set_asset(&asset_amount.token_account_id, account_asset);
+        account.internal_set_asset(&asset_amount.token_id, account_asset);
 
         asset.supplied.withdraw(shares, amount);
-        self.internal_set_asset(&asset_amount.token_account_id, asset);
+        self.internal_set_asset(&asset_amount.token_id, asset);
 
         amount
     }
@@ -139,16 +138,16 @@ impl Contract {
         account: &mut Account,
         asset_amount: &AssetAmount,
     ) -> Balance {
-        let asset = self.internal_unwrap_asset(&asset_amount.token_account_id);
-        let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_account_id);
+        let asset = self.internal_unwrap_asset(&asset_amount.token_id);
+        let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_id);
 
         let (shares, amount) =
             asset_amount_to_shares(&asset.supplied, account_asset.shares, &asset_amount, false);
 
         account_asset.withdraw_shares(shares);
-        account.internal_set_asset(&asset_amount.token_account_id, account_asset);
+        account.internal_set_asset(&asset_amount.token_id, account_asset);
 
-        account.increase_collateral(&asset_amount.token_account_id, shares);
+        account.increase_collateral(&asset_amount.token_id, shares);
 
         amount
     }
@@ -159,13 +158,13 @@ impl Contract {
         account: &mut Account,
         asset_amount: &AssetAmount,
     ) -> Balance {
-        let asset = self.internal_unwrap_asset(&asset_amount.token_account_id);
-        let collateral_shares = account.internal_unwrap_collateral(&asset_amount.token_account_id);
+        let asset = self.internal_unwrap_asset(&asset_amount.token_id);
+        let collateral_shares = account.internal_unwrap_collateral(&asset_amount.token_id);
 
         let (shares, amount) =
             asset_amount_to_shares(&asset.supplied, collateral_shares, &asset_amount, false);
 
-        account.decrease_collateral(&asset_amount.token_account_id, shares);
+        account.decrease_collateral(&asset_amount.token_id, shares);
 
         account_asset.deposit_shares(shares);
 
@@ -177,9 +176,8 @@ impl Contract {
         account: &mut Account,
         asset_amount: &AssetAmount,
     ) -> Balance {
-        let mut asset = self.internal_unwrap_asset(&asset_amount.token_account_id);
-        let mut account_asset =
-            account.internal_get_asset_or_default(&asset_amount.token_account_id);
+        let mut asset = self.internal_unwrap_asset(&asset_amount.token_id);
+        let mut account_asset = account.internal_get_asset_or_default(&asset_amount.token_id);
 
         let available_amount = asset.available_amount();
         let max_borrow_shares = asset.borrowed.amount_to_shares(available_amount, false);
@@ -193,12 +191,12 @@ impl Contract {
 
         asset.borrowed.deposit(borrowed_shares, amount);
         asset.supplied.deposit(supplied_shares, amount);
-        self.internal_set_asset(&asset_amount.token_account_id, asset);
+        self.internal_set_asset(&asset_amount.token_id, asset);
 
-        account.increase_borrowed(&asset_amount.token_account_id, borrowed_shares);
+        account.increase_borrowed(&asset_amount.token_id, borrowed_shares);
 
         account_asset.deposit_shares(supplied_shares);
-        account.internal_set_asset(&asset_amount.token_account_id, account_asset);
+        account.internal_set_asset(&asset_amount.token_id, account_asset);
 
         amount
     }
@@ -209,9 +207,8 @@ impl Contract {
         account: &mut Account,
         asset_amount: &AssetAmount,
     ) -> Balance {
-        let mut asset = self.internal_unwrap_asset(&asset_amount.token_account_id);
-        let available_borrowed_shares =
-            account.internal_unwrap_borrowed(&asset_amount.token_account_id);
+        let mut asset = self.internal_unwrap_asset(&asset_amount.token_id);
+        let available_borrowed_shares = account.internal_unwrap_borrowed(&asset_amount.token_id);
 
         let (mut borrowed_shares, mut amount) = asset_amount_to_shares(
             &asset.borrowed,
@@ -236,9 +233,9 @@ impl Contract {
 
         asset.supplied.withdraw(supplied_shares, amount);
         asset.borrowed.withdraw(borrowed_shares, amount);
-        self.internal_set_asset(&asset_amount.token_account_id, asset);
+        self.internal_set_asset(&asset_amount.token_id, asset);
 
-        account.decrease_borrowed(&asset_amount.token_account_id, borrowed_shares);
+        account.decrease_borrowed(&asset_amount.token_id, borrowed_shares);
 
         account_asset.withdraw_shares(supplied_shares);
 
@@ -267,33 +264,26 @@ impl Contract {
         let mut collateral_taken_sum = BigDecimal::zero();
 
         for asset_amount in in_assets {
-            let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_account_id);
+            let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_id);
             let amount =
                 self.internal_repay(&mut account_asset, &mut liquidation_account, &asset_amount);
-            account.internal_set_asset(&asset_amount.token_account_id, account_asset);
+            account.internal_set_asset(&asset_amount.token_id, account_asset);
 
             borrowed_repaid_sum = borrowed_repaid_sum
-                + BigDecimal::from_balance_price(
-                    amount,
-                    prices.get_unwrap(&asset_amount.token_account_id),
-                );
+                + BigDecimal::from_balance_price(amount, prices.get_unwrap(&asset_amount.token_id));
         }
 
         for asset_amount in out_assets {
-            let mut account_asset =
-                account.internal_get_asset_or_default(&asset_amount.token_account_id);
+            let mut account_asset = account.internal_get_asset_or_default(&asset_amount.token_id);
             let amount = self.internal_decrease_collateral(
                 &mut account_asset,
                 &mut liquidation_account,
                 &asset_amount,
             );
-            account.internal_set_asset(&asset_amount.token_account_id, account_asset);
+            account.internal_set_asset(&asset_amount.token_id, account_asset);
 
             collateral_taken_sum = collateral_taken_sum
-                + BigDecimal::from_balance_price(
-                    amount,
-                    prices.get_unwrap(&asset_amount.token_account_id),
-                );
+                + BigDecimal::from_balance_price(amount, prices.get_unwrap(&asset_amount.token_id));
         }
 
         let discounted_collateral_taken = collateral_taken_sum * (BigDecimal::one() - max_discount);
@@ -326,19 +316,16 @@ impl Contract {
             .collateral
             .iter()
             .fold(BigDecimal::zero(), |sum, c| {
-                let asset = self.internal_unwrap_asset(&c.token_account_id);
+                let asset = self.internal_unwrap_asset(&c.token_id);
                 let balance = asset.supplied.shares_to_amount(c.shares, false);
-                sum + BigDecimal::from_balance_price(
-                    balance,
-                    prices.get_unwrap(&c.token_account_id),
-                )
-                .mul_ratio(asset.config.volatility_ratio)
+                sum + BigDecimal::from_balance_price(balance, prices.get_unwrap(&c.token_id))
+                    .mul_ratio(asset.config.volatility_ratio)
             });
 
         let borrowed_sum = account.borrowed.iter().fold(BigDecimal::zero(), |sum, b| {
-            let asset = self.internal_unwrap_asset(&b.token_account_id);
+            let asset = self.internal_unwrap_asset(&b.token_id);
             let balance = asset.borrowed.shares_to_amount(b.shares, true);
-            sum + BigDecimal::from_balance_price(balance, prices.get_unwrap(&b.token_account_id))
+            sum + BigDecimal::from_balance_price(balance, prices.get_unwrap(&b.token_id))
                 .mul_ratio(asset.config.volatility_ratio)
         });
 

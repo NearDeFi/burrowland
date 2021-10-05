@@ -3,7 +3,7 @@ use crate::*;
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AssetView {
-    pub token_account_id: TokenAccountId,
+    pub token_id: TokenId,
     #[serde(with = "u128_dec_format")]
     pub balance: Balance,
     pub shares: Shares,
@@ -24,13 +24,13 @@ impl Contract {
             account_id: account.account_id,
             supplied: unordered_map_pagination(&account.supplied, None, None)
                 .into_iter()
-                .map(|(token_account_id, AccountAsset { shares })| {
+                .map(|(token_id, AccountAsset { shares })| {
                     let balance = self
-                        .internal_unwrap_asset(&token_account_id)
+                        .internal_unwrap_asset(&token_id)
                         .supplied
                         .shares_to_amount(shares, false);
                     AssetView {
-                        token_account_id,
+                        token_id,
                         balance,
                         shares,
                     }
@@ -39,42 +39,32 @@ impl Contract {
             collateral: account
                 .collateral
                 .into_iter()
-                .map(
-                    |CollateralAsset {
-                         token_account_id,
-                         shares,
-                     }| {
-                        let balance = self
-                            .internal_unwrap_asset(&token_account_id)
-                            .supplied
-                            .shares_to_amount(shares, false);
-                        AssetView {
-                            token_account_id,
-                            balance,
-                            shares,
-                        }
-                    },
-                )
+                .map(|CollateralAsset { token_id, shares }| {
+                    let balance = self
+                        .internal_unwrap_asset(&token_id)
+                        .supplied
+                        .shares_to_amount(shares, false);
+                    AssetView {
+                        token_id,
+                        balance,
+                        shares,
+                    }
+                })
                 .collect(),
             borrowed: account
                 .borrowed
                 .into_iter()
-                .map(
-                    |BorrowedAsset {
-                         token_account_id,
-                         shares,
-                     }| {
-                        let balance = self
-                            .internal_unwrap_asset(&token_account_id)
-                            .borrowed
-                            .shares_to_amount(shares, true);
-                        AssetView {
-                            token_account_id,
-                            balance,
-                            shares,
-                        }
-                    },
-                )
+                .map(|BorrowedAsset { token_id, shares }| {
+                    let balance = self
+                        .internal_unwrap_asset(&token_id)
+                        .borrowed
+                        .shares_to_amount(shares, true);
+                    AssetView {
+                        token_id,
+                        balance,
+                        shares,
+                    }
+                })
                 .collect(),
         }
     }

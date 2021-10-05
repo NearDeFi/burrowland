@@ -6,7 +6,7 @@ pub struct Account {
     /// A copy of an account ID. Saves one storage_read when iterating on accounts.
     pub account_id: AccountId,
     #[serde(skip_serializing)]
-    pub supplied: UnorderedMap<TokenAccountId, VAccountAsset>,
+    pub supplied: UnorderedMap<TokenId, VAccountAsset>,
     pub collateral: Vec<CollateralAsset>,
     pub borrowed: Vec<BorrowedAsset>,
 }
@@ -42,26 +42,22 @@ impl Account {
         }
     }
 
-    pub fn increase_collateral(&mut self, token_account_id: &TokenAccountId, shares: Shares) {
-        if let Some(collateral) = self
-            .collateral
-            .iter_mut()
-            .find(|c| &c.token_account_id == token_account_id)
-        {
+    pub fn increase_collateral(&mut self, token_id: &TokenId, shares: Shares) {
+        if let Some(collateral) = self.collateral.iter_mut().find(|c| &c.token_id == token_id) {
             collateral.shares.0 += shares.0;
         } else {
             self.collateral.push(CollateralAsset {
-                token_account_id: token_account_id.clone(),
+                token_id: token_id.clone(),
                 shares,
             })
         }
     }
 
-    pub fn decrease_collateral(&mut self, token_account_id: &TokenAccountId, shares: Shares) {
+    pub fn decrease_collateral(&mut self, token_id: &TokenId, shares: Shares) {
         let index = self
             .collateral
             .iter()
-            .position(|c| &c.token_account_id == token_account_id)
+            .position(|c| &c.token_id == token_id)
             .expect("Collateral not found");
         if let Some(new_balance) = self.collateral[index].shares.0.checked_sub(shares.0) {
             if new_balance > 0 {
@@ -74,26 +70,22 @@ impl Account {
         }
     }
 
-    pub fn increase_borrowed(&mut self, token_account_id: &TokenAccountId, shares: Shares) {
-        if let Some(borrowed) = self
-            .borrowed
-            .iter_mut()
-            .find(|c| &c.token_account_id == token_account_id)
-        {
+    pub fn increase_borrowed(&mut self, token_id: &TokenId, shares: Shares) {
+        if let Some(borrowed) = self.borrowed.iter_mut().find(|c| &c.token_id == token_id) {
             borrowed.shares.0 += shares.0;
         } else {
             self.borrowed.push(BorrowedAsset {
-                token_account_id: token_account_id.clone(),
+                token_id: token_id.clone(),
                 shares,
             })
         }
     }
 
-    pub fn decrease_borrowed(&mut self, token_account_id: &TokenAccountId, shares: Shares) {
+    pub fn decrease_borrowed(&mut self, token_id: &TokenId, shares: Shares) {
         let index = self
             .borrowed
             .iter()
-            .position(|c| &c.token_account_id == token_account_id)
+            .position(|c| &c.token_id == token_id)
             .expect("Borrowed asset not found");
         if let Some(new_balance) = self.borrowed[index].shares.0.checked_sub(shares.0) {
             if new_balance > 0 {
@@ -106,18 +98,18 @@ impl Account {
         }
     }
 
-    pub fn internal_unwrap_collateral(&mut self, token_account_id: &TokenAccountId) -> Shares {
+    pub fn internal_unwrap_collateral(&mut self, token_id: &TokenId) -> Shares {
         self.collateral
             .iter()
-            .find(|c| &c.token_account_id == token_account_id)
+            .find(|c| &c.token_id == token_id)
             .expect("Collateral not found")
             .shares
     }
 
-    pub fn internal_unwrap_borrowed(&mut self, token_account_id: &TokenAccountId) -> Shares {
+    pub fn internal_unwrap_borrowed(&mut self, token_id: &TokenId) -> Shares {
         self.borrowed
             .iter()
-            .find(|c| &c.token_account_id == token_account_id)
+            .find(|c| &c.token_id == token_id)
             .expect("Borrowed asset not found")
             .shares
     }
@@ -126,14 +118,14 @@ impl Account {
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct CollateralAsset {
-    pub token_account_id: TokenAccountId,
+    pub token_id: TokenId,
     pub shares: Shares,
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct BorrowedAsset {
-    pub token_account_id: TokenAccountId,
+    pub token_id: TokenId,
     pub shares: Shares,
 }
 
