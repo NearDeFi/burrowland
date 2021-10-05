@@ -3,30 +3,45 @@ use crate::*;
 const MAX_POS: u32 = 10000;
 const MAX_RATIO: u32 = 10000;
 
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+/// Represents an asset config.
+/// Example:
+/// 25% reserve, 80% target utilization, 12% target APR, 250% max APR, 60% vol
+/// JSON:
+/// ```json
+/// {
+///   "reserve_ratio": 2500,
+///   "target_utilization": 8000,
+///   "target_utilization_rate": "1000000000003593629036885046",
+///   "max_utilization_rate": "1000000000039724853136740579",
+///   "volatility_ratio": 6000
+/// }
+/// ```
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AssetConfig {
-    // E.g. 25% from borrowed interests goes to the reserve.
+    /// The ratio of interest that is reserved by the protocol (multiplied by 10000).
+    /// E.g. 2500 means 25% from borrowed interests goes to the reserve.
     pub reserve_ratio: u32,
-    // E.g. 80% of assets are borrowed.
+    /// Target utilization ratio (multiplied by 10000).
+    /// E.g. 8000 means the protocol targets 80% of assets are borrowed.
     pub target_utilization: u32,
-    // Rate in the magic rate formula with BigDecimal denominator at opt_utilization_pos
+    /// The compounding rate at target utilization ratio.
+    /// Use `apr_to_rate.py` script to compute the value for a given APR.
+    /// Given as a decimal string. E.g. "1000000000003593629036885046" for 12% APR.
     pub target_utilization_rate: LowU128,
-    // Rate at 100% utilization
+    /// The compounding rate at 100% utilization.
+    /// Use `apr_to_rate.py` script to compute the value for a given APR.
+    /// Given as a decimal string. E.g. "1000000000039724853136740579" for 250% APR.
     pub max_utilization_rate: LowU128,
-    // Volatility ratio.
-    // E.g. 40% for NEAR and 90% for DAI means you can borrow 40% * 90% of DAI for supplying NEAR.
+    /// Volatility ratio (multiplied by 10000).
+    /// It defines which percentage collateral that covers borrowing as well as which percentage of
+    /// borrowed asset can be taken.
+    /// E.g. 6000 means 60%. If an account has 100 $ABC in collateral and $ABC is at 10$ per token,
+    /// the collateral value is 1000$, but the borrowing power is 60% or $600.
+    /// Now if you're trying to borrow $XYZ and it's volatility ratio is 80%, then you can only
+    /// borrow less than 80% of $600 = $480 of XYZ before liquidation can begin.
     pub volatility_ratio: u32,
 }
-
-// "wrap.near" example. 25% reserve, 80% target utilization, 12% target APR, 250% max APR, 60% vol
-// {
-// "reserve_ratio": 2500,
-// "target_utilization": 8000,
-// "target_utilization_rate": "1000000000003593629036885046",
-// "max_utilization_rate": "1000000000039724853136740579",
-// "volatility_ratio": 6000
-// }
 
 impl AssetConfig {
     pub fn assert_valid(&self) {

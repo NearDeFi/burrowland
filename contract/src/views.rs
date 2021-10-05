@@ -13,8 +13,11 @@ pub struct AssetView {
 #[serde(crate = "near_sdk::serde")]
 pub struct AccountDetailedView {
     pub account_id: AccountId,
+    /// A list of assets that are supplied by the account (but not used a collateral).
     pub supplied: Vec<AssetView>,
+    /// A list of assets that are used as a collateral.
     pub collateral: Vec<AssetView>,
+    /// A list of assets that are borrowed.
     pub borrowed: Vec<AssetView>,
 }
 

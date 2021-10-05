@@ -1,15 +1,26 @@
 use crate::*;
 use near_sdk::Duration;
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
 
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
+static ASSETS: Lazy<Mutex<HashMap<TokenId, Option<Asset>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Asset {
+    /// Total supplied including collateral, but excluding reserved.
     pub supplied: Pool,
+    /// Total borrowed.
     pub borrowed: Pool,
+    /// The amount reserved for the stability. This amount can also be borrowed and affects
+    /// borrowing rate.
     #[serde(with = "u128_dec_format")]
     pub reserved: Balance,
+    /// When the asset was last updated. It's always going to be the current block timestamp.
     #[serde(with = "u64_dec_format")]
     pub last_update_timestamp: Timestamp,
+    /// The asset config.
     pub config: AssetConfig,
 }
 
@@ -65,6 +76,7 @@ impl Asset {
         let interest =
             rate.pow(time_diff_ms).round_mul_u128(self.borrowed.balance) - self.borrowed.balance;
         log!("Interest added: {}", interest);
+        // TODO: Split interest based on ratio between reserved and supplied?
         let reserved = ratio(interest, self.config.reserve_ratio);
         self.supplied.balance += interest - reserved;
         self.reserved += reserved;
@@ -92,24 +104,40 @@ impl Contract {
     }
 
     pub fn internal_get_asset(&self, token_id: &TokenId) -> Option<Asset> {
-        self.assets.get(token_id).map(|o| {
-            let mut asset: Asset = o.into();
-            asset.update();
+        if let Some(asset) = ASSETS.lock().unwrap().get(token_id) {
+            asset.clone()
+        } else {
+            let asset = self.assets.get(token_id).map(|o| {
+                let mut asset: Asset = o.into();
+                asset.update();
+                asset
+            });
+            ASSETS
+                .lock()
+                .unwrap()
+                .insert(token_id.clone(), asset.clone());
             asset
-        })
+        }
     }
 
     pub fn internal_set_asset(&mut self, token_id: &TokenId, asset: Asset) {
+        ASSETS
+            .lock()
+            .unwrap()
+            .insert(token_id.clone(), Some(asset.clone()));
         self.assets.insert(token_id, &asset.into());
     }
 }
 
 #[near_bindgen]
 impl Contract {
+    /// Returns an asset for a given token_id.
     pub fn get_asset(&self, token_id: ValidAccountId) -> Option<Asset> {
         self.internal_get_asset(token_id.as_ref())
     }
 
+    /// Returns an list of pairs (token_id, asset) for assets a given list of token_id.
+    /// Only returns pais for existing assets.
     pub fn get_assets(&self, token_ids: Vec<ValidAccountId>) -> Vec<(TokenId, Asset)> {
         token_ids
             .into_iter()
@@ -120,6 +148,7 @@ impl Contract {
             .collect()
     }
 
+    /// Returns a list of pairs (token_id, asset) for assets from a given index up to a given limit.
     pub fn get_assets_paged(
         &self,
         from_index: Option<u64>,

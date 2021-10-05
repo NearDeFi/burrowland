@@ -62,6 +62,7 @@ pub struct Contract {
 
 #[near_bindgen]
 impl Contract {
+    /// Initializes the contract with the given config. Needs to be called once.
     #[init]
     pub fn new(config: Config) -> Self {
         Self {

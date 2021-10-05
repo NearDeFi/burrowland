@@ -6,7 +6,11 @@ const MAX_NUM_ASSETS: usize = 8;
 #[serde(crate = "near_sdk::serde")]
 pub struct AssetAmount {
     pub token_id: TokenId,
+    /// The amount of tokens intended to be used for the action.
+    /// If `None`, then the maximum amount will be tried.
     pub amount: Option<WrappedBalance>,
+    /// The maximum amount of tokens that can be used for the action.
+    /// If `None`, then the maximum `available` amount will be used.
     pub max_amount: Option<WrappedBalance>,
 }
 
@@ -375,6 +379,8 @@ fn asset_amount_to_shares(
 
 #[near_bindgen]
 impl Contract {
+    /// Executes a given list actions on behalf of the predecessor account.
+    /// - Requires one yoctoNEAR.
     #[payable]
     pub fn execute(&mut self, actions: Vec<Action>) {
         assert_one_yocto();

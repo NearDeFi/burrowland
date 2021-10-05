@@ -15,6 +15,10 @@ pub enum TokenReceiverMsg {
 
 #[near_bindgen]
 impl FungibleTokenReceiver for Contract {
+    /// Receives the transfer from the fungible token and executes a list of actions given in the
+    /// message on behalf of the sender. The actions that can be executed should be limited to a set
+    /// that doesn't require pricing.
+    /// - Requires to be called by the fungible token account.
     fn ft_on_transfer(
         &mut self,
         sender_id: ValidAccountId,

@@ -9,6 +9,9 @@ enum PriceReceiverMsg {
 
 #[near_bindgen]
 impl OraclePriceReceiver for Contract {
+    /// The method will execute a given list of actions in the msg using the prices from the `data`
+    /// provided by the oracle on behalf of the sender_id.
+    /// - Requires to be called by the oracle account ID.
     fn oracle_on_call(&mut self, sender_id: ValidAccountId, data: PriceData, msg: String) {
         assert_eq!(env::predecessor_account_id(), self.get_oracle_account_id());
 

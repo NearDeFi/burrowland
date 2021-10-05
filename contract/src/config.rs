@@ -28,10 +28,14 @@ impl Contract {
 
 #[near_bindgen]
 impl Contract {
+    /// Returns the current config.
     pub fn get_config(&self) -> Config {
         self.internal_config()
     }
 
+    /// Updates the current config.
+    /// - Requires one yoctoNEAR.
+    /// - Requires to be called by the contract owner.
     #[payable]
     pub fn update_config(&mut self, config: Config) {
         assert_one_yocto();
@@ -55,6 +59,11 @@ impl Contract {
         self.accounts.clear();
     }
 
+    /// Adds an asset with a given token_id and a given asset_config.
+    /// - Panics if the asset config is invalid.
+    /// - Panics if an asset with the given token_id already exists.
+    /// - Requires one yoctoNEAR.
+    /// - Requires to be called by the contract owner.
     #[payable]
     pub fn add_asset(&mut self, token_id: ValidAccountId, asset_config: AssetConfig) {
         assert_one_yocto();
@@ -67,6 +76,11 @@ impl Contract {
         )
     }
 
+    /// Updates the asset config for the asset with the a given token_id.
+    /// - Panics if the asset config is invalid.
+    /// - Panics if an asset with the given token_id doesn't exist.
+    /// - Requires one yoctoNEAR.
+    /// - Requires to be called by the contract owner.
     #[payable]
     pub fn update_asset(&mut self, token_id: ValidAccountId, asset_config: AssetConfig) {
         assert_one_yocto();

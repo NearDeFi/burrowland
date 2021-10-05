@@ -5,9 +5,13 @@ use crate::*;
 pub struct Account {
     /// A copy of an account ID. Saves one storage_read when iterating on accounts.
     pub account_id: AccountId,
+    /// A list of assets that are supplied by the account (but not used a collateral).
+    /// It's not returned for account pagination.
     #[serde(skip_serializing)]
     pub supplied: UnorderedMap<TokenId, VAccountAsset>,
+    /// A list of collateral assets.
     pub collateral: Vec<CollateralAsset>,
+    /// A list of borrowed assets.
     pub borrowed: Vec<BorrowedAsset>,
 }
 
@@ -162,12 +166,17 @@ impl Contract {
 
 #[near_bindgen]
 impl Contract {
+    /// Returns detailed information about an account for a given account_id.
+    /// The information includes all supplied assets, collateral and borrowed.
+    /// Each asset includes the current balance and the number of shares.
     pub fn get_account(&self, account_id: ValidAccountId) -> Option<AccountDetailedView> {
         self.internal_get_account(account_id.as_ref())
             .map(|account| self.account_into_detailed_view(account))
     }
 
-    /// This method is used to iterate on the accounts for liquidation
+    /// Returns limited account information for accounts from a given index up to a given limit.
+    /// The information includes number of shares for collateral and borrowed assets.
+    /// This method can be used to iterate on the accounts for liquidation.
     pub fn get_accounts_paged(&self, from_index: Option<u64>, limit: Option<u64>) -> Vec<Account> {
         let values = self.accounts.values_as_vector();
         let from_index = from_index.unwrap_or(0);
