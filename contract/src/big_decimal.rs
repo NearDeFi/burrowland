@@ -1,4 +1,5 @@
 use crate::*;
+use near_sdk::borsh::maybestd::io::Write;
 use near_sdk::json_types::U128;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
@@ -49,7 +50,7 @@ impl From<u32> for BigDecimal {
     }
 }
 
-impl Add<BigDecimal> for BigDecimal {
+impl Add for BigDecimal {
     type Output = Self;
 
     fn add(self, rhs: BigDecimal) -> Self::Output {
@@ -57,7 +58,7 @@ impl Add<BigDecimal> for BigDecimal {
     }
 }
 
-impl Sub<BigDecimal> for BigDecimal {
+impl Sub for BigDecimal {
     type Output = Self;
 
     fn sub(self, rhs: BigDecimal) -> Self::Output {
@@ -161,17 +162,17 @@ impl PartialOrd for BigDecimal {
     }
 }
 
-// impl BorshSerialize for BigDecimal {
-//     fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
-//         BorshSerialize::serialize(&self.0 .0, writer)
-//     }
-// }
-//
-// impl BorshDeserialize for BigDecimal {
-//     fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
-//         Ok(Self(U384(BorshDeserialize::deserialize(buf)?)))
-//     }
-// }
+impl BorshSerialize for BigDecimal {
+    fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        BorshSerialize::serialize(&self.0 .0, writer)
+    }
+}
+
+impl BorshDeserialize for BigDecimal {
+    fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
+        Ok(Self(U384(BorshDeserialize::deserialize(buf)?)))
+    }
+}
 
 #[cfg(test)]
 mod tests {
