@@ -116,23 +116,37 @@ impl Contract {
         for (token_id, &reward) in &all_rewards {
             self.internal_deposit(account, &token_id, reward);
         }
-        // TODO: Compute booster
-        let booster = account.compute_booster();
+        let booster = self.internal_compute_account_booster(account);
         for (farm_id, mut account_farm, mut asset_farm) in farms {
             asset_farm.boosted_shares -= account_farm.boosted_shares;
             match &farm_id {
                 FarmId::Supplied(token_id) => {
                     account_farm.boosted_shares =
-                        booster.round_mul_u128(account.get_supplied_shares(token_id));
+                        booster.round_mul_u128(account.get_supplied_shares(token_id).0);
                 }
                 FarmId::Borrowed(token_id) => {
                     account_farm.boosted_shares =
-                        booster.round_mul_u128(account.get_borrowed_shares(token_id));
+                        booster.round_mul_u128(account.get_borrowed_shares(token_id).0);
                 }
             }
             asset_farm.boosted_shares += account_farm.boosted_shares;
             account.farms.insert(&farm_id, &account_farm.into());
             self.internal_set_asset_farm(&farm_id, asset_farm);
         }
+    }
+
+    pub fn internal_compute_account_booster(&self, account: &Account) -> BigDecimal {
+        let BoosterConfig {
+            token_id,
+            booster_decimals,
+            booster_log_base,
+        } = self.internal_config().booster_config;
+        let asset = self.internal_unwrap_asset(&token_id);
+        let booster_shares = account.get_supplied_shares(&token_id);
+        let booster_balance = asset.supplied.shares_to_amount(booster_shares, false);
+        BigDecimal::from(
+            1f64 + (1f64 + ((booster_balance as f64) / 10f64.powf(booster_decimals as f64)))
+                .log(booster_log_base as f64),
+        )
     }
 }

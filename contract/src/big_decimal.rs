@@ -27,8 +27,12 @@ pub struct BigDecimal(U384);
 impl Display for BigDecimal {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let a = self.0 / U384::from(BIG_DIVISOR);
-        let b = self.0 - a * U384::from(BIG_DIVISOR);
-        write!(f, "{}.{:027}", a, b.as_u128())
+        let b = (self.0 - a * U384::from(BIG_DIVISOR)).as_u128();
+        if b > 0 {
+            write!(f, "{}", format!("{}.{:027}", a, b).trim_end_matches('0'))
+        } else {
+            write!(f, "{}.0", a)
+        }
     }
 }
 
@@ -47,6 +51,16 @@ impl From<u64> for BigDecimal {
 impl From<u32> for BigDecimal {
     fn from(a: u32) -> Self {
         Self(U384::from(a) * U384::from(BIG_DIVISOR))
+    }
+}
+
+impl From<f64> for BigDecimal {
+    fn from(a: f64) -> Self {
+        let base = a as u128;
+        Self(
+            U384::from(base) * U384::from(BIG_DIVISOR)
+                + U384::from((a.fract() * (BIG_DIVISOR as f64)) as u128),
+        )
     }
 }
 
@@ -277,5 +291,14 @@ mod tests {
             val = interest.round_mul_u128(val);
         }
         almost_eq(val, initial_val * 2, 15);
+    }
+
+    #[test]
+    fn test_display() {
+        assert_eq!("1.0", BigDecimal::one().to_string());
+        assert_eq!("2.0", BigDecimal::from(2u32).to_string());
+        assert_eq!("0.0", BigDecimal::zero().to_string());
+        assert!(BigDecimal::from(1.5f64).to_string().starts_with("1.500000"));
+        assert!(BigDecimal::from(0.5f64).to_string().starts_with("0.500000"));
     }
 }

@@ -134,11 +134,7 @@ impl Account {
         }
     }
 
-    pub fn compute_booster(&self) -> BigDecimal {
-        BigDecimal::one()
-    }
-
-    pub fn get_supplied_shares(&self, token_id: &TokenId) -> Balance {
+    pub fn get_supplied_shares(&self, token_id: &TokenId) -> Shares {
         let collateral_shares = self
             .collateral
             .iter()
@@ -149,15 +145,15 @@ impl Account {
             .internal_get_asset(token_id)
             .map(|asset| asset.shares.0)
             .unwrap_or(0);
-        supplied_shares + collateral_shares
+        (supplied_shares + collateral_shares).into()
     }
 
-    pub fn get_borrowed_shares(&self, token_id: &TokenId) -> Balance {
+    pub fn get_borrowed_shares(&self, token_id: &TokenId) -> Shares {
         self.borrowed
             .iter()
             .find(|b| &b.token_id == token_id)
-            .map(|ba| ba.shares.0)
-            .unwrap_or(0)
+            .map(|ba| ba.shares)
+            .unwrap_or(0.into())
     }
 }
 
