@@ -66,5 +66,6 @@ impl Account {
         } else {
             self.supplied.insert(token_id, &account_asset.into());
         }
+        self.add_affected_farm(FarmId::Supplied(token_id.clone()));
     }
 }

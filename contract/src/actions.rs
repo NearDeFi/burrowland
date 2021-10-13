@@ -43,6 +43,7 @@ impl Contract {
         for action in actions {
             match action {
                 Action::Withdraw(asset_amount) => {
+                    account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
                     let amount = self.internal_withdraw(account, &asset_amount);
                     self.internal_ft_transfer(account_id, &asset_amount.token_id, amount);
                 }
@@ -60,10 +61,14 @@ impl Contract {
                 Action::Borrow(asset_amount) => {
                     need_number_check = true;
                     need_risk_check = true;
+                    account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
+                    account.add_affected_farm(FarmId::Borrowed(asset_amount.token_id.clone()));
                     let amount = self.internal_borrow(account, &asset_amount);
                 }
                 Action::Repay(asset_amount) => {
                     let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_id);
+                    account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
+                    account.add_affected_farm(FarmId::Borrowed(asset_amount.token_id.clone()));
                     let amount = self.internal_repay(&mut account_asset, account, &asset_amount);
                     account.internal_set_asset(&asset_amount.token_id, account_asset);
                 }
@@ -268,6 +273,8 @@ impl Contract {
         let mut collateral_taken_sum = BigDecimal::zero();
 
         for asset_amount in in_assets {
+            account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
+            liquidation_account.add_affected_farm(FarmId::Borrowed(asset_amount.token_id.clone()));
             let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_id);
             let amount =
                 self.internal_repay(&mut account_asset, &mut liquidation_account, &asset_amount);
@@ -278,6 +285,8 @@ impl Contract {
         }
 
         for asset_amount in out_assets {
+            account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
+            liquidation_account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
             let mut account_asset = account.internal_get_asset_or_default(&asset_amount.token_id);
             let amount = self.internal_decrease_collateral(
                 &mut account_asset,
@@ -302,6 +311,8 @@ impl Contract {
             "The liquidation amount is too large. The liquidation account should stay in risk"
         );
 
+        self.internal_account_apply_affected_farms(&mut liquidation_account);
+        // TODO: Fix storage increase due to farming.
         // NOTE: This method can only decrease storage, by repaying some burrowed assets and taking some
         // collateral.
         let released_bytes = env::storage_usage() - liquidation_storage.initial_storage_usage;

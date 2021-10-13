@@ -1,7 +1,4 @@
 use crate::*;
-use near_sdk::Duration;
-use once_cell::sync::Lazy;
-use std::sync::Mutex;
 
 static ASSETS: Lazy<Mutex<HashMap<TokenId, Option<Asset>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));

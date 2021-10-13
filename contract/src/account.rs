@@ -13,6 +13,12 @@ pub struct Account {
     pub collateral: Vec<CollateralAsset>,
     /// A list of borrowed assets.
     pub borrowed: Vec<BorrowedAsset>,
+    /// Keeping track of data required for farms for this account.
+    #[serde(skip_serializing)]
+    pub farms: UnorderedMap<FarmId, VAccountFarm>,
+    #[borsh_skip]
+    #[serde(skip_serializing)]
+    pub affected_farms: Vec<FarmId>,
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -43,6 +49,10 @@ impl Account {
             }),
             collateral: vec![],
             borrowed: vec![],
+            farms: UnorderedMap::new(StorageKey::AccountFarms {
+                account_id: account_id.clone(),
+            }),
+            affected_farms: vec![],
         }
     }
 
@@ -116,6 +126,34 @@ impl Account {
             .find(|c| &c.token_id == token_id)
             .expect("Borrowed asset not found")
             .shares
+    }
+
+    pub fn add_affected_farm(&mut self, farm_id: FarmId) {
+        if !self.affected_farms.contains(&farm_id) {
+            self.affected_farms.push(farm_id);
+        }
+    }
+
+    pub fn get_supplied_shares(&self, token_id: &TokenId) -> Shares {
+        let collateral_shares = self
+            .collateral
+            .iter()
+            .find(|c| &c.token_id == token_id)
+            .map(|ca| ca.shares.0)
+            .unwrap_or(0);
+        let supplied_shares = self
+            .internal_get_asset(token_id)
+            .map(|asset| asset.shares.0)
+            .unwrap_or(0);
+        (supplied_shares + collateral_shares).into()
+    }
+
+    pub fn get_borrowed_shares(&self, token_id: &TokenId) -> Shares {
+        self.borrowed
+            .iter()
+            .find(|b| &b.token_id == token_id)
+            .map(|ba| ba.shares)
+            .unwrap_or(0.into())
     }
 }
 

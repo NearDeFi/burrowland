@@ -39,6 +39,7 @@ impl FungibleTokenReceiver for Contract {
 
         let (mut account, mut storage) =
             self.internal_unwrap_account_with_storage(sender_id.as_ref());
+        account.add_affected_farm(FarmId::Supplied(token_id.clone()));
         self.internal_deposit(&mut account, &token_id, amount.0);
         self.internal_execute(
             sender_id.as_ref(),
@@ -102,6 +103,7 @@ impl ExtSelf for Contract {
         let promise_success = is_promise_success();
         if !promise_success {
             let (mut account, storage) = self.internal_unwrap_account_with_storage(&account_id);
+            account.add_affected_farm(FarmId::Supplied(token_id.clone()));
             self.internal_deposit(&mut account, &token_id, amount.0);
             self.internal_set_account(&account_id, account, storage);
         }
