@@ -24,6 +24,12 @@ pub type LowU128 = U128;
 #[derive(Copy, Clone)]
 pub struct BigDecimal(U384);
 
+impl Default for BigDecimal {
+    fn default() -> Self {
+        BigDecimal::zero()
+    }
+}
+
 impl Display for BigDecimal {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let a = self.0 / U384::from(BIG_DIVISOR);

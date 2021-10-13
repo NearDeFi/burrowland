@@ -1,6 +1,6 @@
 use crate::*;
 
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Clone, Hash, Eq, PartialEq)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Hash, Eq, PartialEq)]
 #[serde(crate = "near_sdk::serde")]
 pub enum FarmId {
     Supplied(TokenId),
@@ -50,8 +50,8 @@ impl From<AccountFarm> for VAccountFarm {
 
 impl Contract {
     pub fn internal_account_farm_claim(
-        &mut self,
-        account: &mut Account,
+        &self,
+        account: &Account,
         farm_id: &FarmId,
         asset_farm: &AssetFarm,
     ) -> (AccountFarm, Vec<(TokenId, Balance)>) {
@@ -69,7 +69,7 @@ impl Contract {
             account_farm.block_timestamp = block_timestamp;
             for (
                 i,
-                Reward {
+                AssetFarmReward {
                     token_id,
                     reward_per_share,
                     ..
@@ -161,9 +161,5 @@ impl Contract {
             asset.supplied.shares_to_amount(booster_shares, false),
             config.booster_decimals,
         )
-        // BigDecimal::from(
-        //     1f64 + (1f64 + ((booster_balance as f64) / 10f64.powf(booster_decimals as f64)))
-        //         .log(booster_log_base as f64),
-        // )
     }
 }

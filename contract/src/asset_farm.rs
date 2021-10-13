@@ -9,19 +9,25 @@ const NANOS_PER_DAY: Duration = 24 * 60 * 60 * 10u64.pow(9);
 #[derive(BorshSerialize, BorshDeserialize, Clone)]
 pub struct AssetFarm {
     pub block_timestamp: Timestamp,
-    pub rewards: Vec<Reward>,
+    pub rewards: Vec<AssetFarmReward>,
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Clone)]
-pub struct Reward {
+#[derive(BorshSerialize, BorshDeserialize, Clone, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct AssetFarmReward {
     pub token_id: TokenId,
+    #[serde(with = "u128_dec_format")]
     pub reward_per_day: Balance,
     /// Including decimals
+    #[serde(with = "u128_dec_format")]
     pub booster_log_base: Balance,
 
+    #[serde(with = "u128_dec_format")]
     pub remaining_rewards: Balance,
 
+    #[serde(with = "u128_dec_format")]
     pub boosted_shares: Balance,
+    #[serde(skip)]
     pub reward_per_share: BigDecimal,
 }
 
