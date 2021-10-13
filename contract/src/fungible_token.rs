@@ -25,10 +25,15 @@ impl FungibleTokenReceiver for Contract {
         amount: U128,
         msg: String,
     ) -> PromiseOrValue<U128> {
-        // TODO: We need to be careful that only whitelisted tokens can call this method with a
-        //     given set of actions.
         let token_id = env::predecessor_account_id();
+        let asset = self.internal_unwrap_asset(&token_id);
+        assert!(
+            asset.config.can_deposit,
+            "Deposits for this asset are not enabled"
+        );
 
+        // TODO: We need to be careful that only whitelisted tokens can call this method with a
+        //     given set of actions. Or verify which actions are possible to do.
         let actions: Vec<Action> = if msg.is_empty() {
             vec![]
         } else {
@@ -40,7 +45,11 @@ impl FungibleTokenReceiver for Contract {
         let (mut account, mut storage) =
             self.internal_unwrap_account_with_storage(sender_id.as_ref());
         account.add_affected_farm(FarmId::Supplied(token_id.clone()));
-        self.internal_deposit(&mut account, &token_id, amount.0);
+        self.internal_deposit(
+            &mut account,
+            &token_id,
+            amount.0 * 10u128.pow(asset.config.extra_decimals as u32),
+        );
         self.internal_execute(
             sender_id.as_ref(),
             &mut account,
@@ -61,9 +70,11 @@ impl Contract {
         token_id: &TokenId,
         amount: Balance,
     ) -> Promise {
+        let asset = self.internal_unwrap_asset(token_id);
+        let ft_amount = amount / 10u128.pow(asset.config.extra_decimals as u32);
         ext_fungible_token::ft_transfer(
             account_id.clone(),
-            amount.into(),
+            ft_amount.into(),
             None,
             token_id,
             ONE_YOCTO,

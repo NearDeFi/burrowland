@@ -128,6 +128,11 @@ impl Contract {
         asset_amount: &AssetAmount,
     ) -> Balance {
         let mut asset = self.internal_unwrap_asset(&asset_amount.token_id);
+        assert!(
+            asset.config.can_withdraw,
+            "Withdrawals for this asset are not enabled"
+        );
+
         let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_id);
 
         let (shares, amount) =
@@ -148,6 +153,11 @@ impl Contract {
         asset_amount: &AssetAmount,
     ) -> Balance {
         let asset = self.internal_unwrap_asset(&asset_amount.token_id);
+        assert!(
+            asset.config.can_use_as_collateral,
+            "Thi asset can't be used as a collateral"
+        );
+
         let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_id);
 
         let (shares, amount) =
@@ -186,6 +196,8 @@ impl Contract {
         asset_amount: &AssetAmount,
     ) -> Balance {
         let mut asset = self.internal_unwrap_asset(&asset_amount.token_id);
+        assert!(asset.config.can_borrow, "Thi asset can't be used borrowed");
+
         let mut account_asset = account.internal_get_asset_or_default(&asset_amount.token_id);
 
         let available_amount = asset.available_amount();

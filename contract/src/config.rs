@@ -7,17 +7,9 @@ pub struct Config {
 
     pub owner_id: ValidAccountId,
 
-    pub booster_config: BoosterConfig,
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct BoosterConfig {
-    pub token_id: TokenId,
+    pub booster_token_id: TokenId,
 
     pub booster_decimals: u8,
-
-    pub booster_log_base: u32,
 }
 
 impl Contract {

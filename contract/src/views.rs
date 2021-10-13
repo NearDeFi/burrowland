@@ -19,14 +19,11 @@ pub struct AccountDetailedView {
     pub collateral: Vec<AssetView>,
     /// A list of assets that are borrowed.
     pub borrowed: Vec<AssetView>,
-    /// Represents the current farming booster.
-    pub farming_booster: String,
 }
 
 impl Contract {
     pub fn account_into_detailed_view(&self, account: Account) -> AccountDetailedView {
         AccountDetailedView {
-            farming_booster: self.internal_compute_account_booster(&account).to_string(),
             account_id: account.account_id,
             supplied: unordered_map_pagination(&account.supplied, None, None)
                 .into_iter()

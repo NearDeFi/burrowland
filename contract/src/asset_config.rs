@@ -41,6 +41,18 @@ pub struct AssetConfig {
     /// Now if you're trying to borrow $XYZ and it's volatility ratio is 80%, then you can only
     /// borrow less than 80% of $600 = $480 of XYZ before liquidation can begin.
     pub volatility_ratio: u32,
+    /// The amount of extra decimals to use for the fungible token. For example, if the asset like
+    /// USDT has `6` decimals in the metadata, the `extra_decimals` can be set to `12`, to make the
+    /// inner balance of USDT at `18` decimals.
+    pub extra_decimals: u8,
+    /// Whether the deposits of this assets are enabled.
+    pub can_deposit: bool,
+    /// Whether the withdrawals of this assets are enabled.
+    pub can_withdraw: bool,
+    /// Whether this assets can be used as collateral.
+    pub can_use_as_collateral: bool,
+    /// Whether this assets can be borrowed.
+    pub can_borrow: bool,
 }
 
 impl AssetConfig {
@@ -89,6 +101,11 @@ mod tests {
             target_utilization_rate: 1000000000003593629036885046u128.into(),
             max_utilization_rate: 1000000000039724853136740579u128.into(),
             volatility_ratio: 6000,
+            extra_decimals: 0,
+            can_deposit: true,
+            can_withdraw: true,
+            can_use_as_collateral: true,
+            can_borrow: true,
         }
     }
 

@@ -20,8 +20,13 @@ impl FarmId {
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct AccountFarm {
     pub block_timestamp: Timestamp,
+    pub rewards: Vec<AccountFarmReward>,
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct AccountFarmReward {
     pub boosted_shares: Balance,
-    pub last_reward_per_share: Vec<BigDecimal>,
+    pub last_reward_per_share: BigDecimal,
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -58,8 +63,7 @@ impl Contract {
             .map(|v| v.into())
             .unwrap_or_else(|| AccountFarm {
                 block_timestamp,
-                boosted_shares: 0,
-                last_reward_per_share: vec![],
+                rewards: vec![],
             });
         if account_farm.block_timestamp != block_timestamp {
             account_farm.block_timestamp = block_timestamp;
@@ -72,17 +76,18 @@ impl Contract {
                 },
             ) in asset_farm.rewards.iter().enumerate()
             {
-                if let Some(last_reward_per_share) = account_farm.last_reward_per_share.get_mut(i) {
-                    let diff = reward_per_share.clone() - last_reward_per_share.clone();
-                    *last_reward_per_share = reward_per_share.clone();
-                    let amount = diff.round_mul_u128(account_farm.boosted_shares);
+                if let Some(reward) = account_farm.rewards.get_mut(i) {
+                    let diff = reward_per_share.clone() - reward.last_reward_per_share.clone();
+                    reward.last_reward_per_share = reward_per_share.clone();
+                    let amount = diff.round_mul_u128(reward.boosted_shares);
                     if amount > 0 {
                         new_rewards.push((token_id.clone(), amount));
                     }
                 } else {
-                    account_farm
-                        .last_reward_per_share
-                        .push(reward_per_share.clone());
+                    account_farm.rewards.push(AccountFarmReward {
+                        boosted_shares: 0,
+                        last_reward_per_share: reward_per_share.clone(),
+                    });
                 }
             }
         }
@@ -116,37 +121,49 @@ impl Contract {
         for (token_id, &reward) in &all_rewards {
             self.internal_deposit(account, &token_id, reward);
         }
-        let booster = self.internal_compute_account_booster(account);
+        let (booster_balance, booster_decimals) =
+            self.internal_account_get_booster_balance(account);
+        let booster_base = 10u128.pow(booster_decimals as u32);
+
         for (farm_id, mut account_farm, mut asset_farm) in farms {
-            asset_farm.boosted_shares -= account_farm.boosted_shares;
-            match &farm_id {
-                FarmId::Supplied(token_id) => {
-                    account_farm.boosted_shares =
-                        booster.round_mul_u128(account.get_supplied_shares(token_id).0);
-                }
-                FarmId::Borrowed(token_id) => {
-                    account_farm.boosted_shares =
-                        booster.round_mul_u128(account.get_borrowed_shares(token_id).0);
-                }
+            for (account_farm_reward, asset_farm_reward) in account_farm
+                .rewards
+                .iter_mut()
+                .zip(asset_farm.rewards.iter_mut())
+            {
+                asset_farm_reward.boosted_shares -= account_farm_reward.boosted_shares;
+                let shares = match &farm_id {
+                    FarmId::Supplied(token_id) => account.get_supplied_shares(token_id).0,
+                    FarmId::Borrowed(token_id) => account.get_borrowed_shares(token_id).0,
+                };
+                let extra_shares = if booster_balance > booster_base {
+                    let log_base =
+                        (asset_farm_reward.booster_log_base as f64) / (booster_base as f64);
+                    ((shares as f64)
+                        * ((booster_balance as f64) / (booster_base as f64)).log(log_base))
+                        as u128
+                } else {
+                    0
+                };
+                account_farm_reward.boosted_shares += shares + extra_shares;
+                asset_farm_reward.boosted_shares += account_farm_reward.boosted_shares;
             }
-            asset_farm.boosted_shares += account_farm.boosted_shares;
             account.farms.insert(&farm_id, &account_farm.into());
             self.internal_set_asset_farm(&farm_id, asset_farm);
         }
     }
 
-    pub fn internal_compute_account_booster(&self, account: &Account) -> BigDecimal {
-        let BoosterConfig {
-            token_id,
-            booster_decimals,
-            booster_log_base,
-        } = self.internal_config().booster_config;
-        let asset = self.internal_unwrap_asset(&token_id);
-        let booster_shares = account.get_supplied_shares(&token_id);
-        let booster_balance = asset.supplied.shares_to_amount(booster_shares, false);
-        BigDecimal::from(
-            1f64 + (1f64 + ((booster_balance as f64) / 10f64.powf(booster_decimals as f64)))
-                .log(booster_log_base as f64),
+    pub fn internal_account_get_booster_balance(&self, account: &Account) -> (Balance, u8) {
+        let config = self.internal_config();
+        let asset = self.internal_unwrap_asset(&config.booster_token_id);
+        let booster_shares = account.get_supplied_shares(&config.booster_token_id);
+        (
+            asset.supplied.shares_to_amount(booster_shares, false),
+            config.booster_decimals,
         )
+        // BigDecimal::from(
+        //     1f64 + (1f64 + ((booster_balance as f64) / 10f64.powf(booster_decimals as f64)))
+        //         .log(booster_log_base as f64),
+        // )
     }
 }

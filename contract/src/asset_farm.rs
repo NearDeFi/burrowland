@@ -9,7 +9,6 @@ const NANOS_PER_DAY: Duration = 24 * 60 * 60 * 10u64.pow(9);
 #[derive(BorshSerialize, BorshDeserialize, Clone)]
 pub struct AssetFarm {
     pub block_timestamp: Timestamp,
-    pub boosted_shares: Balance,
     pub rewards: Vec<Reward>,
 }
 
@@ -17,8 +16,12 @@ pub struct AssetFarm {
 pub struct Reward {
     pub token_id: TokenId,
     pub reward_per_day: Balance,
+    /// Including decimals
+    pub booster_log_base: Balance,
 
     pub remaining_rewards: Balance,
+
+    pub boosted_shares: Balance,
     pub reward_per_share: BigDecimal,
 }
 
@@ -30,10 +33,10 @@ impl AssetFarm {
         }
         let time_diff = block_timestamp - self.block_timestamp;
         self.block_timestamp = block_timestamp;
-        if self.boosted_shares == 0 {
-            return;
-        }
         for reward in &mut self.rewards {
+            if reward.boosted_shares == 0 {
+                continue;
+            }
             let acquired_rewards = std::cmp::min(
                 reward.remaining_rewards,
                 u128_ratio(
@@ -44,7 +47,7 @@ impl AssetFarm {
             );
             reward.remaining_rewards -= acquired_rewards;
             reward.reward_per_share = reward.reward_per_share
-                + BigDecimal::from(acquired_rewards) / BigDecimal::from(self.boosted_shares);
+                + BigDecimal::from(acquired_rewards) / BigDecimal::from(reward.boosted_shares);
         }
     }
 }
