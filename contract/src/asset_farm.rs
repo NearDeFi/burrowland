@@ -6,8 +6,10 @@ static ASSET_FARMS: Lazy<Mutex<HashMap<FarmId, Option<AssetFarm>>>> =
 const NANOS_PER_DAY: Duration = 24 * 60 * 60 * 10u64.pow(9);
 
 /// A data required to keep track of a farm for an account.
-#[derive(BorshSerialize, BorshDeserialize, Clone)]
+#[derive(BorshSerialize, BorshDeserialize, Clone, Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct AssetFarm {
+    #[serde(with = "u64_dec_format")]
     pub block_timestamp: Timestamp,
     pub rewards: Vec<AssetFarmReward>,
 }
