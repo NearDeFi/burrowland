@@ -94,13 +94,19 @@ impl Contract {
         (account_farm, new_rewards)
     }
 
-    pub fn internal_account_farm_claim_all(&mut self, account: &mut Account) {
-        assert!(account.affected_farms.is_empty());
-        account.affected_farms.extend(account.farms.keys());
-        self.internal_account_apply_affected_farms(account);
-    }
-
-    pub fn internal_account_apply_affected_farms(&mut self, account: &mut Account) {
+    pub fn internal_account_apply_affected_farms(
+        &mut self,
+        account: &mut Account,
+        verify_booster: bool,
+    ) {
+        let config = self.internal_config();
+        if verify_booster
+            && account
+                .affected_farms
+                .contains(&FarmId::Supplied(config.booster_token_id.clone()))
+        {
+            account.add_all_affected_farms();
+        }
         let mut all_rewards: HashMap<TokenId, Balance> = HashMap::new();
         let mut i = 0;
         let mut farms = vec![];
@@ -121,45 +127,56 @@ impl Contract {
         for (token_id, &reward) in &all_rewards {
             self.internal_deposit(account, &token_id, reward);
         }
-        let (booster_balance, booster_decimals) =
-            self.internal_account_get_booster_balance(account);
-        let booster_base = 10u128.pow(booster_decimals as u32);
+        let booster_balance = self
+            .internal_unwrap_asset(&config.booster_token_id)
+            .supplied
+            .shares_to_amount(account.get_supplied_shares(&config.booster_token_id), false);
+        let booster_base = 10u128.pow(config.booster_decimals as u32);
 
         for (farm_id, mut account_farm, mut asset_farm) in farms {
+            let shares = match &farm_id {
+                FarmId::Supplied(token_id) => account.get_supplied_shares(token_id).0,
+                FarmId::Borrowed(token_id) => account.get_borrowed_shares(token_id).0,
+            };
             for (account_farm_reward, asset_farm_reward) in account_farm
                 .rewards
                 .iter_mut()
                 .zip(asset_farm.rewards.iter_mut())
             {
                 asset_farm_reward.boosted_shares -= account_farm_reward.boosted_shares;
-                let shares = match &farm_id {
-                    FarmId::Supplied(token_id) => account.get_supplied_shares(token_id).0,
-                    FarmId::Borrowed(token_id) => account.get_borrowed_shares(token_id).0,
-                };
-                let extra_shares = if booster_balance > booster_base {
-                    let log_base =
-                        (asset_farm_reward.booster_log_base as f64) / (booster_base as f64);
-                    ((shares as f64)
-                        * ((booster_balance as f64) / (booster_base as f64)).log(log_base))
-                        as u128
-                } else {
-                    0
-                };
-                account_farm_reward.boosted_shares += shares + extra_shares;
-                asset_farm_reward.boosted_shares += account_farm_reward.boosted_shares;
+                if shares > 0 {
+                    let extra_shares = if booster_balance > booster_base {
+                        let log_base =
+                            (asset_farm_reward.booster_log_base as f64) / (booster_base as f64);
+                        ((shares as f64)
+                            * ((booster_balance as f64) / (booster_base as f64)).log(log_base))
+                            as u128
+                    } else {
+                        0
+                    };
+                    account_farm_reward.boosted_shares += shares + extra_shares;
+                    asset_farm_reward.boosted_shares += account_farm_reward.boosted_shares;
+                }
             }
-            account.farms.insert(&farm_id, &account_farm.into());
+            if shares > 0 {
+                account.farms.insert(&farm_id, &account_farm.into());
+            } else {
+                account.farms.remove(&farm_id);
+            }
             self.internal_set_asset_farm(&farm_id, asset_farm);
         }
     }
+}
 
-    pub fn internal_account_get_booster_balance(&self, account: &Account) -> (Balance, u8) {
-        let config = self.internal_config();
-        let asset = self.internal_unwrap_asset(&config.booster_token_id);
-        let booster_shares = account.get_supplied_shares(&config.booster_token_id);
-        (
-            asset.supplied.shares_to_amount(booster_shares, false),
-            config.booster_decimals,
-        )
+#[near_bindgen]
+impl Contract {
+    /// Claims all unclaimed farm rewards.
+    pub fn account_farm_claim_all(&mut self) {
+        let account_id = env::predecessor_account_id();
+        let (mut account, storage) =
+            self.internal_unwrap_account_with_storage(&env::predecessor_account_id());
+        account.add_all_affected_farms();
+        self.internal_account_apply_affected_farms(&mut account, false);
+        self.internal_set_account(&account_id, account, storage);
     }
 }

@@ -323,7 +323,7 @@ impl Contract {
             "The liquidation amount is too large. The liquidation account should stay in risk"
         );
 
-        self.internal_account_apply_affected_farms(&mut liquidation_account);
+        self.internal_account_apply_affected_farms(&mut liquidation_account, true);
         // TODO: Fix storage increase due to farming.
         // NOTE: This method can only decrease storage, by repaying some burrowed assets and taking some
         // collateral.

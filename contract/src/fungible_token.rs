@@ -11,6 +11,7 @@ const GAS_FOR_AFTER_FT_TRANSFER: Gas = 20 * TGAS;
 #[serde(crate = "near_sdk::serde")]
 pub enum TokenReceiverMsg {
     Execute { actions: Vec<Action> },
+    DepositToReserve,
 }
 
 #[near_bindgen]
@@ -26,30 +27,35 @@ impl FungibleTokenReceiver for Contract {
         msg: String,
     ) -> PromiseOrValue<U128> {
         let token_id = env::predecessor_account_id();
-        let asset = self.internal_unwrap_asset(&token_id);
+        let mut asset = self.internal_unwrap_asset(&token_id);
         assert!(
             asset.config.can_deposit,
             "Deposits for this asset are not enabled"
         );
+
+        let amount = amount.0 * 10u128.pow(asset.config.extra_decimals as u32);
 
         // TODO: We need to be careful that only whitelisted tokens can call this method with a
         //     given set of actions. Or verify which actions are possible to do.
         let actions: Vec<Action> = if msg.is_empty() {
             vec![]
         } else {
-            match serde_json::from_str(&msg).expect("Can't parse TokenReceiverMsg") {
+            let token_receiver_msg: TokenReceiverMsg =
+                serde_json::from_str(&msg).expect("Can't parse TokenReceiverMsg");
+            match token_receiver_msg {
                 TokenReceiverMsg::Execute { actions } => actions,
+                TokenReceiverMsg::DepositToReserve => {
+                    asset.reserved += amount;
+                    self.internal_set_asset(&token_id, asset);
+                    return PromiseOrValue::Value(U128(0));
+                }
             }
         };
 
         let (mut account, mut storage) =
             self.internal_unwrap_account_with_storage(sender_id.as_ref());
         account.add_affected_farm(FarmId::Supplied(token_id.clone()));
-        self.internal_deposit(
-            &mut account,
-            &token_id,
-            amount.0 * 10u128.pow(asset.config.extra_decimals as u32),
-        );
+        self.internal_deposit(&mut account, &token_id, amount);
         self.internal_execute(
             sender_id.as_ref(),
             &mut account,

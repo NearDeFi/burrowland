@@ -47,22 +47,6 @@ impl Contract {
         self.config.set(&config);
     }
 
-    #[payable]
-    pub fn debug_nuke_state(&mut self) {
-        assert_one_yocto();
-        self.assert_owner();
-        for token_id in self.asset_ids.to_vec() {
-            self.assets.remove(&token_id);
-        }
-        self.asset_ids.clear();
-        for account in self.accounts.values() {
-            let mut account: Account = account.into();
-            self.storage.remove(&account.account_id);
-            account.supplied.clear();
-        }
-        self.accounts.clear();
-    }
-
     /// Adds an asset with a given token_id and a given asset_config.
     /// - Panics if the asset config is invalid.
     /// - Panics if an asset with the given token_id already exists.
@@ -93,5 +77,63 @@ impl Contract {
         let mut asset = self.internal_unwrap_asset(token_id.as_ref());
         asset.config = asset_config;
         self.internal_set_asset(token_id.as_ref(), asset);
+    }
+
+    /// Adds an asset farm reward for the farm with a given farm_id. The reward is of token_id with
+    /// the new reward per day amount and a new booster log base. The extra amount of reward is
+    /// taken from the asset reserved balance.
+    /// - The booster log base should include decimals of the token for better precision of the log
+    ///    base. For example, if token decimals is `6` the log base of `10_500_000` will be `10.5`.
+    /// - Panics if the farm asset token_id doesn't exists.
+    /// - Panics if an asset with the given token_id doesn't exists.
+    /// - Panics if an asset with the given token_id doesn't have enough reserved balance.
+    /// - Requires one yoctoNEAR.
+    /// - Requires to be called by the contract owner.
+    #[payable]
+    pub fn add_asset_farm_reward(
+        &mut self,
+        farm_id: FarmId,
+        token_id: ValidAccountId,
+        new_reward_per_day: WrappedBalance,
+        new_booster_log_base: WrappedBalance,
+        extra_amount: WrappedBalance,
+    ) {
+        assert_one_yocto();
+        self.assert_owner();
+        assert!(self.assets.contains_key(farm_id.get_token_id()));
+        let token_id: TokenId = token_id.into();
+        let mut reward_asset = self.internal_unwrap_asset(&token_id);
+        assert!(
+            reward_asset.reserved >= extra_amount.0,
+            "Not enough reserved reward balance"
+        );
+        reward_asset.reserved -= extra_amount.0;
+        self.internal_set_asset(&token_id, reward_asset);
+        let mut asset_farm = self
+            .internal_get_asset_farm(&farm_id)
+            .unwrap_or_else(|| AssetFarm {
+                block_timestamp: env::block_timestamp(),
+                rewards: vec![],
+            });
+
+        if let Some(asset_farm_reward) = asset_farm
+            .rewards
+            .iter_mut()
+            .find(|r| r.token_id == token_id)
+        {
+            asset_farm_reward.reward_per_day = new_reward_per_day.into();
+            asset_farm_reward.booster_log_base = new_booster_log_base.into();
+            asset_farm_reward.remaining_rewards += extra_amount.0;
+        } else {
+            asset_farm.rewards.push(AssetFarmReward {
+                token_id,
+                reward_per_day: new_reward_per_day.into(),
+                booster_log_base: new_booster_log_base.into(),
+                remaining_rewards: extra_amount.0,
+                boosted_shares: 0,
+                reward_per_share: Default::default(),
+            });
+        }
+        self.internal_set_asset_farm(&farm_id, asset_farm);
     }
 }

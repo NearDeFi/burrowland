@@ -134,6 +134,22 @@ impl Account {
         }
     }
 
+    pub fn add_all_affected_farms(&mut self) {
+        let len = self.affected_farms.len();
+        for farm_id in self.farms.keys() {
+            if len == 0
+                || self
+                    .affected_farms
+                    .iter()
+                    .take(len)
+                    .find(|f| *f == &farm_id)
+                    .is_none()
+            {
+                self.affected_farms.push(farm_id);
+            }
+        }
+    }
+
     pub fn get_supplied_shares(&self, token_id: &TokenId) -> Shares {
         let collateral_shares = self
             .collateral
