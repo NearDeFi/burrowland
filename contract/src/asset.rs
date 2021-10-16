@@ -101,20 +101,16 @@ impl Contract {
     }
 
     pub fn internal_get_asset(&self, token_id: &TokenId) -> Option<Asset> {
-        if let Some(asset) = ASSETS.lock().unwrap().get(token_id) {
-            asset.clone()
-        } else {
+        let mut cache = ASSETS.lock().unwrap();
+        cache.get(token_id).cloned().unwrap_or_else(|| {
             let asset = self.assets.get(token_id).map(|o| {
                 let mut asset: Asset = o.into();
                 asset.update();
                 asset
             });
-            ASSETS
-                .lock()
-                .unwrap()
-                .insert(token_id.clone(), asset.clone());
+            cache.insert(token_id.clone(), asset.clone());
             asset
-        }
+        })
     }
 
     pub fn internal_set_asset(&mut self, token_id: &TokenId, asset: Asset) {

@@ -86,20 +86,16 @@ impl Contract {
     }
 
     pub fn internal_get_asset_farm(&self, farm_id: &FarmId) -> Option<AssetFarm> {
-        if let Some(asset) = ASSET_FARMS.lock().unwrap().get(farm_id) {
-            asset.clone()
-        } else {
+        let mut cache = ASSET_FARMS.lock().unwrap();
+        cache.get(farm_id).cloned().unwrap_or_else(|| {
             let asset_farm = self.asset_farms.get(farm_id).map(|v| {
                 let mut asset_farm: AssetFarm = v.into();
                 asset_farm.update();
                 asset_farm
             });
-            ASSET_FARMS
-                .lock()
-                .unwrap()
-                .insert(farm_id.clone(), asset_farm.clone());
+            cache.insert(farm_id.clone(), asset_farm.clone());
             asset_farm
-        }
+        })
     }
 
     pub fn internal_set_asset_farm(&mut self, farm_id: &FarmId, asset_farm: AssetFarm) {
