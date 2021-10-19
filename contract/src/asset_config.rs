@@ -6,6 +6,7 @@ const MAX_RATIO: u32 = 10000;
 /// Represents an asset config.
 /// Example:
 /// 25% reserve, 80% target utilization, 12% target APR, 250% max APR, 60% vol
+/// no extra decimals, can be deposited, withdrawn, used as a collateral, borrowed
 /// JSON:
 /// ```json
 /// {
@@ -13,7 +14,12 @@ const MAX_RATIO: u32 = 10000;
 ///   "target_utilization": 8000,
 ///   "target_utilization_rate": "1000000000003593629036885046",
 ///   "max_utilization_rate": "1000000000039724853136740579",
-///   "volatility_ratio": 6000
+///   "volatility_ratio": 6000,
+///   "extra_decimals": 0,
+///   "can_deposit": true,
+///   "can_withdraw": true,
+///   "can_use_as_collateral": true,
+///   "can_borrow": true
 /// }
 /// ```
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone)]

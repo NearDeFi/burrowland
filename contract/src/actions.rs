@@ -353,7 +353,7 @@ impl Contract {
             let asset = self.internal_unwrap_asset(&b.token_id);
             let balance = asset.borrowed.shares_to_amount(b.shares, true);
             sum + BigDecimal::from_balance_price(balance, prices.get_unwrap(&b.token_id))
-                .mul_ratio(asset.config.volatility_ratio)
+                .div_ratio(asset.config.volatility_ratio)
         });
 
         if borrowed_sum <= collateral_sum {

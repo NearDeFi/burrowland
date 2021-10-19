@@ -1,14 +1,19 @@
 use crate::*;
 
+/// Contract config
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Config {
+    /// The account ID of the oracle contract
     pub oracle_account_id: ValidAccountId,
 
+    /// The account ID of the contract owner that allows to modify config, assets and use reserves.
     pub owner_id: ValidAccountId,
 
+    /// The account ID of the booster token contract.
     pub booster_token_id: TokenId,
 
+    /// The number of decimals of the booster fungible token.
     pub booster_decimals: u8,
 }
 

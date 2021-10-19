@@ -13,10 +13,6 @@ echo -n "" > /tmp/empty
 near dev-deploy -f /tmp/empty
 OWNER_ID="$(cat neardev/dev-account)"
 
-echo -e "$LG>>>>>>>>>>>>>>$TC Deploy an empty contract to create a user's account $LG<<<<<<<<<<<<<<$NC"
-near dev-deploy -f /tmp/empty
-ACCOUNT_ID="$(cat neardev/dev-account)"
-
 echo -e "$LG>>>>>>>>>>>>>>$TC Deploy the test oracle $LG<<<<<<<<<<<<<<$NC"
 near dev-deploy -f res/test_oracle.wasm
 ORACLE_ID="$(cat neardev/dev-account)"
@@ -30,7 +26,6 @@ BOOSTER_TOKEN_ID="ref.fakes.testnet"
 
 near call $BOOSTER_TOKEN_ID --accountId=$CONTRACT_ID storage_deposit '' --amount=0.00125
 near call $BOOSTER_TOKEN_ID --accountId=$OWNER_ID storage_deposit '' --amount=0.00125
-near call $BOOSTER_TOKEN_ID --accountId=$ACCOUNT_ID storage_deposit '' --amount=0.00125
 
 echo -e "$LG>>>>>>>>>>>>>>$TC Initializing the main contract $LG<<<<<<<<<<<<<<$NC"
 near call $CONTRACT_ID --accountId=$CONTRACT_ID new '{"config": {
@@ -45,28 +40,24 @@ WETH_TOKEN_ID="weth.fakes.testnet"
 
 near call $WETH_TOKEN_ID --accountId=$CONTRACT_ID storage_deposit '' --amount=0.00125
 near call $WETH_TOKEN_ID --accountId=$OWNER_ID storage_deposit '' --amount=0.00125
-near call $WETH_TOKEN_ID --accountId=$ACCOUNT_ID storage_deposit '' --amount=0.00125
 
 echo -e "$LG>>>>>>>>>>>>>>$TC Preparing DAI $LG<<<<<<<<<<<<<<$NC"
 DAI_TOKEN_ID="dai.fakes.testnet"
 
 near call $DAI_TOKEN_ID --accountId=$CONTRACT_ID storage_deposit '' --amount=0.00125
 near call $DAI_TOKEN_ID --accountId=$OWNER_ID storage_deposit '' --amount=0.00125
-near call $DAI_TOKEN_ID --accountId=$ACCOUNT_ID storage_deposit '' --amount=0.00125
 
 echo -e "$LG>>>>>>>>>>>>>>$TC Preparing USDT $LG<<<<<<<<<<<<<<$NC"
 USDT_TOKEN_ID="usdt.fakes.testnet"
 
 near call $USDT_TOKEN_ID --accountId=$CONTRACT_ID storage_deposit '' --amount=0.00125
 near call $USDT_TOKEN_ID --accountId=$OWNER_ID storage_deposit '' --amount=0.00125
-near call $USDT_TOKEN_ID --accountId=$ACCOUNT_ID storage_deposit '' --amount=0.00125
 
 echo -e "$LG>>>>>>>>>>>>>>$TC Preparing wNEAR $LG<<<<<<<<<<<<<<$NC"
 WNEAR_TOKEN_ID="wrap.testnet"
 
 near call $WNEAR_TOKEN_ID --accountId=$CONTRACT_ID storage_deposit '' --amount=0.00125
 near call $WNEAR_TOKEN_ID --accountId=$OWNER_ID storage_deposit '' --amount=0.00125
-near call $WNEAR_TOKEN_ID --accountId=$ACCOUNT_ID storage_deposit '' --amount=0.00125
 
 echo -e "$LG>>>>>>>>>>>>>>$TC Initializing assets $LG<<<<<<<<<<<<<<$NC"
 ONE_YOCTO="0.000000000000000000000001"
@@ -176,40 +167,21 @@ near call $BOOSTER_TOKEN_ID --accountId=$OWNER_ID mint '{
   "account_id": "'$OWNER_ID'",
   "amount": "120000000000000000000000"
 }'
-near call $BOOSTER_TOKEN_ID --accountId=$ACCOUNT_ID mint '{
-  "account_id": "'$ACCOUNT_ID'",
-  "amount": "120000000000000000000000"
-}'
-
 near call $WETH_TOKEN_ID --accountId=$OWNER_ID mint '{
   "account_id": "'$OWNER_ID'",
   "amount": "12000000000000000000"
 }'
-near call $WETH_TOKEN_ID --accountId=$ACCOUNT_ID mint '{
-  "account_id": "'$ACCOUNT_ID'",
-  "amount": "12000000000000000000"
-}'
-
 near call $DAI_TOKEN_ID --accountId=$OWNER_ID mint '{
   "account_id": "'$OWNER_ID'",
   "amount": "12000000000000000000000"
 }'
-near call $DAI_TOKEN_ID --accountId=$ACCOUNT_ID mint '{
-  "account_id": "'$ACCOUNT_ID'",
-  "amount": "12000000000000000000000"
-}'
-
 near call $USDT_TOKEN_ID --accountId=$OWNER_ID mint '{
   "account_id": "'$OWNER_ID'",
   "amount": "12000000000"
 }'
-near call $USDT_TOKEN_ID --accountId=$ACCOUNT_ID mint '{
-  "account_id": "'$ACCOUNT_ID'",
-  "amount": "12000000000"
-}'
+
 
 near call $WNEAR_TOKEN_ID --accountId=$OWNER_ID near_deposit '{}' --amount=120
-near call $WNEAR_TOKEN_ID --accountId=$ACCOUNT_ID near_deposit '{}' --amount=120
 
 echo -e "$LG>>>>>>>>>>>>>>$TC Adding some reserves from the owner: $LG<<<<<<<<<<<<<<$NC"
 echo -e "$LG>>>>>>>>>>>>>>$TC * 2 wETH $NC"
@@ -243,7 +215,6 @@ near call $WNEAR_TOKEN_ID --accountId=$OWNER_ID ft_transfer_call '{
 echo -e "$LG>>>>>>>>>>>>>>$TC Dropping info to continue working from NEAR CLI: $LG<<<<<<<<<<<<<<$NC"
 echo -e "export NEAR_ENV=testnet"
 echo -e "export OWNER_ID=$OWNER_ID"
-echo -e "export ACCOUNT_ID=$ACCOUNT_ID"
 echo -e "export ORACLE_ID=$ORACLE_ID"
 echo -e "export CONTRACT_ID=$CONTRACT_ID"
 echo -e "export BOOSTER_TOKEN_ID=$BOOSTER_TOKEN_ID"

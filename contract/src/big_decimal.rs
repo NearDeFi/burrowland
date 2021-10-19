@@ -123,6 +123,10 @@ impl BigDecimal {
         Self((self.0 * U384::from(ratio) + U384::from(MAX_RATIO / 2)) / U384::from(MAX_RATIO))
     }
 
+    pub fn div_ratio(&self, ratio: u32) -> Self {
+        Self((self.0 * U384::from(MAX_RATIO) + U384::from(MAX_RATIO / 2)) / U384::from(ratio))
+    }
+
     pub fn from_balance_price(balance: Balance, price: &Price) -> Self {
         let num = U384::from(price.multiplier) * U384::from(balance);
         if price.decimals > NUM_DECIMALS {
