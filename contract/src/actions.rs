@@ -285,6 +285,7 @@ impl Contract {
         let mut collateral_taken_sum = BigDecimal::zero();
 
         for asset_amount in in_assets {
+            let asset = self.internal_unwrap_asset(&asset_amount.token_id);
             account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
             liquidation_account.add_affected_farm(FarmId::Borrowed(asset_amount.token_id.clone()));
             let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_id);
@@ -293,10 +294,15 @@ impl Contract {
             account.internal_set_asset(&asset_amount.token_id, account_asset);
 
             borrowed_repaid_sum = borrowed_repaid_sum
-                + BigDecimal::from_balance_price(amount, prices.get_unwrap(&asset_amount.token_id));
+                + BigDecimal::from_balance_price(
+                    amount,
+                    prices.get_unwrap(&asset_amount.token_id),
+                    asset.config.extra_decimals,
+                );
         }
 
         for asset_amount in out_assets {
+            let asset = self.internal_unwrap_asset(&asset_amount.token_id);
             account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
             liquidation_account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
             let mut account_asset = account.internal_get_asset_or_default(&asset_amount.token_id);
@@ -308,7 +314,11 @@ impl Contract {
             account.internal_set_asset(&asset_amount.token_id, account_asset);
 
             collateral_taken_sum = collateral_taken_sum
-                + BigDecimal::from_balance_price(amount, prices.get_unwrap(&asset_amount.token_id));
+                + BigDecimal::from_balance_price(
+                    amount,
+                    prices.get_unwrap(&asset_amount.token_id),
+                    asset.config.extra_decimals,
+                );
         }
 
         let discounted_collateral_taken = collateral_taken_sum * (BigDecimal::one() - max_discount);
@@ -345,15 +355,23 @@ impl Contract {
             .fold(BigDecimal::zero(), |sum, c| {
                 let asset = self.internal_unwrap_asset(&c.token_id);
                 let balance = asset.supplied.shares_to_amount(c.shares, false);
-                sum + BigDecimal::from_balance_price(balance, prices.get_unwrap(&c.token_id))
-                    .mul_ratio(asset.config.volatility_ratio)
+                sum + BigDecimal::from_balance_price(
+                    balance,
+                    prices.get_unwrap(&c.token_id),
+                    asset.config.extra_decimals,
+                )
+                .mul_ratio(asset.config.volatility_ratio)
             });
 
         let borrowed_sum = account.borrowed.iter().fold(BigDecimal::zero(), |sum, b| {
             let asset = self.internal_unwrap_asset(&b.token_id);
             let balance = asset.borrowed.shares_to_amount(b.shares, true);
-            sum + BigDecimal::from_balance_price(balance, prices.get_unwrap(&b.token_id))
-                .div_ratio(asset.config.volatility_ratio)
+            sum + BigDecimal::from_balance_price(
+                balance,
+                prices.get_unwrap(&b.token_id),
+                asset.config.extra_decimals,
+            )
+            .div_ratio(asset.config.volatility_ratio)
         });
 
         if borrowed_sum <= collateral_sum {

@@ -13,9 +13,7 @@ echo -n "" > /tmp/empty
 near dev-deploy -f /tmp/empty
 OWNER_ID="$(cat neardev/dev-account)"
 
-echo -e "$LG>>>>>>>>>>>>>>$TC Deploy the test oracle $LG<<<<<<<<<<<<<<$NC"
-near dev-deploy -f res/test_oracle.wasm
-ORACLE_ID="$(cat neardev/dev-account)"
+ORACLE_ID="priceoracle.testnet"
 
 echo -e "$LG>>>>>>>>>>>>>>$TC Deploy the main contract $LG<<<<<<<<<<<<<<$NC"
 near dev-deploy -f res/burrowland.wasm

@@ -127,12 +127,13 @@ impl BigDecimal {
         Self((self.0 * U384::from(MAX_RATIO) + U384::from(MAX_RATIO / 2)) / U384::from(ratio))
     }
 
-    pub fn from_balance_price(balance: Balance, price: &Price) -> Self {
+    pub fn from_balance_price(balance: Balance, price: &Price, extra_decimals: u8) -> Self {
         let num = U384::from(price.multiplier) * U384::from(balance);
-        if price.decimals > NUM_DECIMALS {
-            Self(num / U384::exp10((price.decimals - NUM_DECIMALS) as usize))
+        let need_decimals = NUM_DECIMALS + extra_decimals;
+        if price.decimals > need_decimals {
+            Self(num / U384::exp10((price.decimals - need_decimals) as usize))
         } else {
-            Self(num * U384::exp10((NUM_DECIMALS - price.decimals) as usize))
+            Self(num * U384::exp10((need_decimals - price.decimals) as usize))
         }
     }
 
