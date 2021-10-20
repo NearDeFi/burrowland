@@ -47,6 +47,12 @@ impl FungibleTokenReceiver for Contract {
                 TokenReceiverMsg::DepositToReserve => {
                     asset.reserved += amount;
                     self.internal_set_asset(&token_id, asset);
+                    log!(
+                        "Account {} deposits to reserve {} of {}",
+                        sender_id.as_ref(),
+                        amount,
+                        token_id
+                    );
                     return PromiseOrValue::Value(U128(0));
                 }
             }
@@ -56,6 +62,7 @@ impl FungibleTokenReceiver for Contract {
             self.internal_unwrap_account_with_storage(sender_id.as_ref());
         account.add_affected_farm(FarmId::Supplied(token_id.clone()));
         self.internal_deposit(&mut account, &token_id, amount);
+        log!("Account {} deposits {} of {}", sender_id, amount, token_id);
         self.internal_execute(
             sender_id.as_ref(),
             &mut account,
@@ -122,6 +129,12 @@ impl ExtSelf for Contract {
             let (mut account, storage) = self.internal_unwrap_account_with_storage(&account_id);
             account.add_affected_farm(FarmId::Supplied(token_id.clone()));
             self.internal_deposit(&mut account, &token_id, amount.0);
+            log!(
+                "Withdrawal has failed: Account {} deposits {} of {}",
+                account_id,
+                amount.0,
+                token_id
+            );
             self.internal_set_account(&account_id, account, storage);
         }
         promise_success

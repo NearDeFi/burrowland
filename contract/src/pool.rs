@@ -35,7 +35,7 @@ impl Pool {
     }
 
     pub fn shares_to_amount(&self, shares: Shares, round_up: bool) -> Balance {
-        if shares.0 >= self.balance {
+        if shares.0 >= self.balance || shares.0 == self.shares.0 {
             self.balance
         } else {
             let extra = if round_up {

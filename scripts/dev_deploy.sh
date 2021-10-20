@@ -119,7 +119,7 @@ near call $CONTRACT_ID --accountId=$OWNER_ID add_asset '{
 
 # USDT APR is 8%, to verify run ./scripts/apr_to_rate.py 8
 # Volatility ratio is 95%, since it's stable and liquid on NEAR
-# It has extra 12 decimals, to bring total to 18
+# USDT by default has 6 decimals, the config adds extra 12 decimals, to bring the total to 18
 near call $CONTRACT_ID --accountId=$OWNER_ID add_asset '{
   "token_id": "'$USDT_TOKEN_ID'",
   "asset_config": {
@@ -128,7 +128,7 @@ near call $CONTRACT_ID --accountId=$OWNER_ID add_asset '{
     "target_utilization_rate": "1000000000002440418605283556",
     "max_utilization_rate": "1000000000039724853136740579",
     "volatility_ratio": 9500,
-    "extra_decimals": 0,
+    "extra_decimals": 12,
     "can_deposit": true,
     "can_withdraw": true,
     "can_use_as_collateral": true,

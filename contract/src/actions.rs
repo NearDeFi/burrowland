@@ -46,17 +46,39 @@ impl Contract {
                     account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
                     let amount = self.internal_withdraw(account, &asset_amount);
                     self.internal_ft_transfer(account_id, &asset_amount.token_id, amount);
+                    log!(
+                        "Account {} withdraws {} of {}",
+                        account_id,
+                        amount,
+                        asset_amount.token_id
+                    );
                 }
                 Action::IncreaseCollateral(asset_amount) => {
                     need_number_check = true;
-                    self.internal_increase_collateral(account, &asset_amount);
+                    let amount = self.internal_increase_collateral(account, &asset_amount);
+                    log!(
+                        "Account {} increases collateral {} of {}",
+                        account_id,
+                        amount,
+                        asset_amount.token_id
+                    );
                 }
                 Action::DecreaseCollateral(asset_amount) => {
                     need_risk_check = true;
                     let mut account_asset =
                         account.internal_get_asset_or_default(&asset_amount.token_id);
-                    self.internal_decrease_collateral(&mut account_asset, account, &asset_amount);
+                    let amount = self.internal_decrease_collateral(
+                        &mut account_asset,
+                        account,
+                        &asset_amount,
+                    );
                     account.internal_set_asset(&asset_amount.token_id, account_asset);
+                    log!(
+                        "Account {} decreases collateral {} of {}",
+                        account_id,
+                        amount,
+                        asset_amount.token_id
+                    );
                 }
                 Action::Borrow(asset_amount) => {
                     need_number_check = true;
@@ -64,12 +86,24 @@ impl Contract {
                     account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
                     account.add_affected_farm(FarmId::Borrowed(asset_amount.token_id.clone()));
                     let amount = self.internal_borrow(account, &asset_amount);
+                    log!(
+                        "Account {} borrows {} of {}",
+                        account_id,
+                        amount,
+                        asset_amount.token_id
+                    );
                 }
                 Action::Repay(asset_amount) => {
                     let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_id);
                     account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
                     account.add_affected_farm(FarmId::Borrowed(asset_amount.token_id.clone()));
                     let amount = self.internal_repay(&mut account_asset, account, &asset_amount);
+                    log!(
+                        "Account {} repays {} of {}",
+                        account_id,
+                        amount,
+                        asset_amount.token_id
+                    );
                     account.internal_set_asset(&asset_amount.token_id, account_asset);
                 }
                 Action::Liquidate {
@@ -84,6 +118,7 @@ impl Contract {
                     );
                     assert!(!in_assets.is_empty() && !out_assets.is_empty());
                     self.internal_liquidate(
+                        account_id,
                         account,
                         storage,
                         &prices,
@@ -265,6 +300,7 @@ impl Contract {
 
     pub fn internal_liquidate(
         &mut self,
+        account_id: &AccountId,
         account: &mut Account,
         storage: &mut Storage,
         prices: &Prices,
@@ -346,9 +382,21 @@ impl Contract {
             liquidation_account,
             liquidation_storage,
         );
+
+        log!(
+            "Account {} liquidates account {}: takes {} for repaying {}",
+            account_id,
+            liquidation_account_id.as_ref(),
+            collateral_taken_sum,
+            borrowed_repaid_sum
+        );
     }
 
     pub fn compute_max_discount(&self, account: &Account, prices: &Prices) -> BigDecimal {
+        if account.borrowed.is_empty() {
+            return BigDecimal::zero();
+        }
+
         let collateral_sum = account
             .collateral
             .iter()
@@ -388,10 +436,10 @@ fn asset_amount_to_shares(
     asset_amount: &AssetAmount,
     inverse_round_direction: bool,
 ) -> (Shares, Balance) {
-    let (shares, amount) = if let Some(min_amount) = &asset_amount.amount {
+    let (shares, amount) = if let Some(amount) = &asset_amount.amount {
         (
-            pool.amount_to_shares(min_amount.0, !inverse_round_direction),
-            min_amount.0,
+            pool.amount_to_shares(amount.0, !inverse_round_direction),
+            amount.0,
         )
     } else if let Some(max_amount) = &asset_amount.max_amount {
         let shares = std::cmp::min(

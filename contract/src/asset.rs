@@ -69,14 +69,16 @@ impl Asset {
     // n = in millis
     fn compound(&mut self, time_diff_ms: Duration) {
         let rate = self.get_rate();
-        log!("Rate is {}", rate);
         let interest =
             rate.pow(time_diff_ms).round_mul_u128(self.borrowed.balance) - self.borrowed.balance;
-        log!("Interest added: {}", interest);
         // TODO: Split interest based on ratio between reserved and supplied?
         let reserved = ratio(interest, self.config.reserve_ratio);
-        self.supplied.balance += interest - reserved;
-        self.reserved += reserved;
+        if self.supplied.shares.0 > 0 {
+            self.supplied.balance += interest - reserved;
+            self.reserved += reserved;
+        } else {
+            self.reserved += interest;
+        }
         self.borrowed.balance += interest;
     }
 
@@ -113,7 +115,15 @@ impl Contract {
         })
     }
 
-    pub fn internal_set_asset(&mut self, token_id: &TokenId, asset: Asset) {
+    pub fn internal_set_asset(&mut self, token_id: &TokenId, mut asset: Asset) {
+        if asset.supplied.shares.0 == 0 && asset.supplied.balance > 0 {
+            asset.reserved += asset.supplied.balance;
+            asset.supplied.balance = 0;
+        }
+        assert!(
+            asset.borrowed.shares.0 > 0 || asset.borrowed.balance == 0,
+            "Borrowed invariant broken"
+        );
         ASSETS
             .lock()
             .unwrap()

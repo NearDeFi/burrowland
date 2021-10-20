@@ -115,18 +115,6 @@ mod tests {
         }
     }
 
-    fn almost_eq(a: u128, b: u128, prec: u32) {
-        let p = 10u128.pow(27 - prec);
-        let ap = (a + p / 2) / p;
-        let bp = (b + p / 2) / p;
-        assert_eq!(
-            ap,
-            bp,
-            "{}",
-            format!("Expected {} to eq {}, with precision {}", a, b, prec)
-        );
-    }
-
     #[test]
     fn test_get_rate() {
         let config = test_config();
