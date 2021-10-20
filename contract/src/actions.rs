@@ -173,6 +173,15 @@ impl Contract {
         let (shares, amount) =
             asset_amount_to_shares(&asset.supplied, account_asset.shares, &asset_amount, false);
 
+        let available_amount = asset.available_amount();
+
+        assert!(
+            amount <= available_amount,
+            "Withdraw error: Exceeded available amount {} of {}",
+            available_amount,
+            &asset_amount.token_id
+        );
+
         account_asset.withdraw_shares(shares);
         account.internal_set_asset(&asset_amount.token_id, account_asset);
 
@@ -241,7 +250,12 @@ impl Contract {
         let (borrowed_shares, amount) =
             asset_amount_to_shares(&asset.borrowed, max_borrow_shares, &asset_amount, true);
 
-        assert!(amount <= available_amount);
+        assert!(
+            amount <= available_amount,
+            "Borrow error: Exceeded available amount {} of {}",
+            available_amount,
+            &asset_amount.token_id
+        );
 
         let supplied_shares: Shares = asset.supplied.amount_to_shares(amount, false);
 
@@ -308,7 +322,7 @@ impl Contract {
         in_assets: Vec<AssetAmount>,
         out_assets: Vec<AssetAmount>,
     ) {
-        let (mut liquidation_account, liquidation_storage) =
+        let (mut liquidation_account, mut liquidation_storage) =
             self.internal_unwrap_account_with_storage(liquidation_account_id.as_ref());
 
         let max_discount = self.compute_max_discount(&liquidation_account, &prices);
@@ -370,13 +384,31 @@ impl Contract {
         );
 
         self.internal_account_apply_affected_farms(&mut liquidation_account, true);
-        // TODO: Fix storage increase due to farming.
-        // NOTE: This method can only decrease storage, by repaying some burrowed assets and taking some
-        // collateral.
-        let released_bytes = env::storage_usage() - liquidation_storage.initial_storage_usage;
+
         // We have to adjust the initial_storage_usage for the acting account to not double count
-        // the released bytes, since these released bytes belongs to the liquidation account.
-        storage.initial_storage_usage += released_bytes;
+        // the bytes from the liquidation account. As well as potentially cover the extra bytes
+        // required by the liquidation account that might be added due to farms.
+        let current_storage_usage = env::storage_usage();
+        if current_storage_usage > liquidation_storage.initial_storage_usage {
+            let required_bytes = current_storage_usage - liquidation_storage.initial_storage_usage;
+            let available_bytes = liquidation_storage.available_bytes();
+            if available_bytes < required_bytes {
+                let extra_bytes = required_bytes - available_bytes;
+                log!(
+                    "Account {} has to cover extra storage of {} bytes for liquidation account {}",
+                    account_id,
+                    extra_bytes,
+                    liquidation_account_id.as_ref(),
+                );
+                liquidation_storage.initial_storage_usage += extra_bytes;
+                storage.initial_storage_usage += available_bytes;
+            } else {
+                storage.initial_storage_usage += required_bytes;
+            }
+        } else {
+            let released_bytes = liquidation_storage.initial_storage_usage - current_storage_usage;
+            storage.initial_storage_usage -= released_bytes;
+        }
         self.internal_set_account(
             liquidation_account_id.as_ref(),
             liquidation_account,

@@ -45,6 +45,11 @@ impl Storage {
         }
     }
 
+    pub(crate) fn available_bytes(&self) -> StorageUsage {
+        let covered_bytes = (self.storage_balance / env::storage_byte_cost()) as StorageUsage;
+        covered_bytes - self.used_bytes
+    }
+
     fn init(&mut self) {
         self.initial_storage_usage = env::storage_usage();
     }
