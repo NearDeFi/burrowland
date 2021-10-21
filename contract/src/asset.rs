@@ -1,5 +1,7 @@
 use crate::*;
 
+pub(crate) const NANOS_PER_YEAR: u64 = 31536000000;
+
 static ASSETS: Lazy<Mutex<HashMap<TokenId, Option<Asset>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
@@ -54,6 +56,11 @@ impl Asset {
     pub fn get_rate(&self) -> BigDecimal {
         self.config
             .get_rate(self.borrowed.balance, self.supplied.balance + self.reserved)
+    }
+
+    pub fn get_apr(&self) -> BigDecimal {
+        let rate = self.get_rate();
+        rate.pow(NANOS_PER_YEAR) - BigDecimal::one()
     }
 
     // n = 31536000000 ms in a year (365 days)
@@ -135,18 +142,19 @@ impl Contract {
 #[near_bindgen]
 impl Contract {
     /// Returns an asset for a given token_id.
-    pub fn get_asset(&self, token_id: ValidAccountId) -> Option<Asset> {
+    pub fn get_asset(&self, token_id: ValidAccountId) -> Option<AssetDetailedView> {
         self.internal_get_asset(token_id.as_ref())
+            .map(|asset| self.asset_into_detailed_view(token_id.into(), asset))
     }
 
     /// Returns an list of pairs (token_id, asset) for assets a given list of token_id.
     /// Only returns pais for existing assets.
-    pub fn get_assets(&self, token_ids: Vec<ValidAccountId>) -> Vec<(TokenId, Asset)> {
+    pub fn get_assets(&self, token_ids: Vec<ValidAccountId>) -> Vec<AssetDetailedView> {
         token_ids
             .into_iter()
             .filter_map(|token_id| {
                 self.internal_get_asset(token_id.as_ref())
-                    .map(|asset| (token_id.into(), asset))
+                    .map(|asset| self.asset_into_detailed_view(token_id.into(), asset))
             })
             .collect()
     }
@@ -170,19 +178,20 @@ impl Contract {
             .collect()
     }
 
-    pub fn debug_get_assets_paged(
+    pub fn get_assets_paged_detailed(
         &self,
         from_index: Option<u64>,
         limit: Option<u64>,
-    ) -> Vec<(TokenId, Asset)> {
+    ) -> Vec<AssetDetailedView> {
         let keys = self.asset_ids.as_vector();
         let from_index = from_index.unwrap_or(0);
         let limit = limit.unwrap_or(keys.len());
         (from_index..std::cmp::min(keys.len(), limit))
             .map(|index| {
-                let key = keys.get(index).unwrap();
-                let asset = self.assets.get(&key).unwrap().into();
-                (key, asset)
+                let token_id = keys.get(index).unwrap();
+                let mut asset: Asset = self.assets.get(&token_id).unwrap().into();
+                asset.update();
+                self.asset_into_detailed_view(token_id, asset)
             })
             .collect()
     }

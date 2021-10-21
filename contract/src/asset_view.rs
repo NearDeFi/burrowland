@@ -1,0 +1,65 @@
+use crate::*;
+
+#[derive(Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct AssetDetailedView {
+    pub token_id: TokenId,
+    /// Total supplied including collateral, but excluding reserved.
+    pub supplied: Pool,
+    /// Total borrowed.
+    pub borrowed: Pool,
+    /// The amount reserved for the stability. This amount can also be borrowed and affects
+    /// borrowing rate.
+    #[serde(with = "u128_dec_format")]
+    pub reserved: Balance,
+    /// When the asset was last updated. It's always going to be the current block timestamp.
+    #[serde(with = "u64_dec_format")]
+    pub last_update_timestamp: Timestamp,
+    /// The asset config.
+    pub config: AssetConfig,
+    /// Current APR
+    pub current_apr: BigDecimal,
+    /// Asset farms
+    pub farms: Vec<AssetFarmView>,
+}
+
+#[derive(Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct AssetFarmView {
+    pub farm_id: FarmId,
+    pub rewards: Vec<AssetFarmReward>,
+}
+
+impl Contract {
+    pub fn asset_into_detailed_view(&self, token_id: TokenId, asset: Asset) -> AssetDetailedView {
+        let farms = self
+            .get_asset_farms(vec![
+                FarmId::Supplied(token_id.clone()),
+                FarmId::Borrowed(token_id.clone()),
+            ])
+            .into_iter()
+            .map(|(farm_id, asset_farm)| AssetFarmView {
+                farm_id,
+                rewards: asset_farm.rewards,
+            })
+            .collect();
+        let current_apr = asset.get_apr();
+        let Asset {
+            supplied,
+            borrowed,
+            reserved,
+            last_update_timestamp,
+            config,
+        } = asset;
+        AssetDetailedView {
+            token_id,
+            supplied,
+            borrowed,
+            reserved,
+            last_update_timestamp,
+            config,
+            current_apr,
+            farms,
+        }
+    }
+}

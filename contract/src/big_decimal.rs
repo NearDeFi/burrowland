@@ -1,6 +1,7 @@
 use crate::*;
 use near_sdk::borsh::maybestd::io::Write;
 use near_sdk::json_types::U128;
+use near_sdk::serde::Serializer;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, Div, Mul, Sub};
@@ -39,6 +40,15 @@ impl Display for BigDecimal {
         } else {
             write!(f, "{}.0", a)
         }
+    }
+}
+
+impl Serialize for BigDecimal {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
     }
 }
 
@@ -205,7 +215,7 @@ mod tests {
     use rand::RngCore;
 
     // Number of milliseconds in a regular year.
-    const N: u64 = 31536000000;
+    const N: u64 = NANOS_PER_YEAR;
     // X = 2
     const LOW_X: LowU128 = U128(2000000000000000000000000000);
     // R ** N = X. So R = X ** (1/N)

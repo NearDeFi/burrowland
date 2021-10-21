@@ -1,10 +1,12 @@
 mod account;
 mod account_asset;
 mod account_farm;
+mod account_view;
 mod actions;
 mod asset;
 mod asset_config;
 mod asset_farm;
+mod asset_view;
 mod big_decimal;
 mod config;
 mod fungible_token;
@@ -13,22 +15,22 @@ mod price_receiver;
 mod prices;
 mod storage;
 mod utils;
-mod views;
 
 use crate::account::*;
 use crate::account_asset::*;
 use crate::account_farm::*;
+use crate::account_view::*;
 use crate::actions::*;
 use crate::asset::*;
 use crate::asset_config::*;
 use crate::asset_farm::*;
+use crate::asset_view::*;
 use crate::big_decimal::*;
 use crate::config::*;
 use crate::pool::*;
 use crate::prices::*;
 use crate::storage::*;
 use crate::utils::*;
-use crate::views::*;
 
 use common::*;
 

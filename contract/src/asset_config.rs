@@ -76,7 +76,6 @@ impl AssetConfig {
         if total_supplied_balance == 0 {
             BigDecimal::one()
         } else {
-            // Fix overflow
             let pos = BigDecimal::from(borrowed_balance).div_u128(total_supplied_balance);
             let target_utilization = BigDecimal::from_ratio(self.target_utilization);
             if pos < target_utilization {
@@ -88,7 +87,7 @@ impl AssetConfig {
                     + (pos - target_utilization)
                         * (BigDecimal::from(self.max_utilization_rate)
                             - BigDecimal::from(self.target_utilization_rate))
-                        / BigDecimal::from(MAX_POS - self.target_utilization)
+                        / BigDecimal::from_ratio(MAX_POS - self.target_utilization)
             }
         }
     }
@@ -116,9 +115,12 @@ mod tests {
     }
 
     #[test]
-    fn test_get_rate() {
+    fn test_get_rate_and_apr() {
         let config = test_config();
-        let rate = config.get_rate(3 * ONE_NEAR, 18 * ONE_NEAR);
-        println!("{}", rate)
+        let rate = config.get_rate(81 * ONE_NEAR, 100 * ONE_NEAR);
+        println!("Rate: {}", rate);
+
+        let apr = rate.pow(NANOS_PER_YEAR) - BigDecimal::one();
+        println!("APR: {}", apr)
     }
 }
