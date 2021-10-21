@@ -6,7 +6,8 @@
     "test:accounts": "jest rest-api.test.js -t 'Accounts' --useStderr --verbose false",
     "test:collateral": "jest rest-api.test.js -t 'Collateral' --useStderr --verbose false",
     "test:borrow": "jest rest-api.test.js -t 'Borrow' --useStderr --verbose false",
-    "test:withdraw": "jest rest-api.test.js -t 'Withdraw' --useStderr --verbose false"
+    "test:withdraw": "jest rest-api.test.js -t 'Withdraw' --useStderr --verbose false",
+    "test:repay": "jest rest-api.test.js -t 'Repay' --useStderr --verbose false"
   },
   "author": "",
   "license": "ISC",

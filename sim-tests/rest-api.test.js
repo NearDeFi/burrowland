@@ -21,12 +21,14 @@ const utils = require('./utils');
 const alice = process.env.ACCOUNT_ID;
 const contract_id = process.env.CONTRACT_ID;
 const usdt_contract_id = process.env.USDT_TOKEN_ID;
+const dai_contract_id = process.env.DAI_TOKEN_ID;
 const oracle_contract_id = process.env.ORACLE_ID;
 
 const bob = "place.testnet";
 
 const burrow = new contract(contract_id);
 const usdt = new contract(usdt_contract_id);
+const dai = new contract(dai_contract_id);
 const oracle = new contract(oracle_contract_id);
 
 describe("Contract set", () => {
@@ -36,6 +38,10 @@ describe("Contract set", () => {
 
     test("USDT Contract is not null " + usdt_contract_id, async () => {
         expect(usdt_contract_id).not.toBe(undefined)
+    });
+
+    test("DAI Contract is not null " + usdt_contract_id, async () => {
+        expect(dai_contract_id).not.toBe(undefined)
     });
 
     test("Oracle Contract is not null " + alice, async () => {
@@ -143,8 +149,7 @@ describe("Collateral", () => {
 
         const account_2 = await burrow.view("get_account",
             {account_id: alice}, {});
-
-        expect(account_2.supplied.length).toBe(0);
+        
         expect(account_2.collateral.length).toBeGreaterThan(0);
         expect(account_2.collateral[0].token_id).toBe(account_1.supplied[0].token_id);
         expect(utils.ConvertFromFTe18(account_2.collateral[0].balance)
@@ -267,6 +272,42 @@ describe("Withdraw", () => {
             {account_id: alice}, {});
 
         expect(account_2.supplied.length).toBe(0);
+    });
+});
+
+
+describe("Repay", () => {
+    test('Deposit asset and repay it in one call', async () => {
+        const account_1 = await burrow.view("get_account",
+            {account_id: alice}, {});
+
+        const repay_amount_1 = 5;
+
+        const ft_transfer_1 = await dai.call("ft_transfer_call", {
+            receiver_id: contract_id,
+            amount: repay_amount_1.toString() + "000000000000000000",
+            msg: JSON.stringify({
+                Execute: {
+                    actions: [
+                        {
+                            Repay: {
+                                token_id: 'dai.fakes.testnet'
+                            }
+                        }
+                    ]
+                }
+            })
+        }, {account_id: alice, tokens: 1, log_errors: true})
+        expect(ft_transfer_1.is_error).toBeFalsy();
+
+        const account_2 = await burrow.view("get_account",
+            {account_id: alice}, {});
+
+        expect(account_2.borrowed.length).toBe(0);
+        //const dai_supplied = account_2.supplied.filter(token => token.token_id === 'dai.fakes.testnet');
+
+        expect(utils.ConvertFromFTe18(account_1.borrowed[0].balance) +
+            utils.ConvertFromFTe18(account_2.supplied[0].balance)).toBeCloseTo(repay_amount_1);
     });
 });
 
