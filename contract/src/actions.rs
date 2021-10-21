@@ -135,6 +135,8 @@ impl Contract {
         if need_risk_check {
             assert!(self.compute_max_discount(account, &prices) == BigDecimal::zero());
         }
+
+        self.internal_account_apply_affected_farms(account, true);
     }
 
     pub fn internal_deposit(

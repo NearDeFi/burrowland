@@ -98,22 +98,22 @@ impl Contract {
     pub fn add_asset_farm_reward(
         &mut self,
         farm_id: FarmId,
-        token_id: ValidAccountId,
+        reward_token_id: ValidAccountId,
         new_reward_per_day: WrappedBalance,
         new_booster_log_base: WrappedBalance,
-        extra_amount: WrappedBalance,
+        reward_amount: WrappedBalance,
     ) {
         assert_one_yocto();
         self.assert_owner();
         assert!(self.assets.contains_key(farm_id.get_token_id()));
-        let token_id: TokenId = token_id.into();
-        let mut reward_asset = self.internal_unwrap_asset(&token_id);
+        let reward_token_id: TokenId = reward_token_id.into();
+        let mut reward_asset = self.internal_unwrap_asset(&reward_token_id);
         assert!(
-            reward_asset.reserved >= extra_amount.0,
+            reward_asset.reserved >= reward_amount.0,
             "Not enough reserved reward balance"
         );
-        reward_asset.reserved -= extra_amount.0;
-        self.internal_set_asset(&token_id, reward_asset);
+        reward_asset.reserved -= reward_amount.0;
+        self.internal_set_asset(&reward_token_id, reward_asset);
         let mut asset_farm = self
             .internal_get_asset_farm(&farm_id)
             .unwrap_or_else(|| AssetFarm {
@@ -124,17 +124,17 @@ impl Contract {
         if let Some(asset_farm_reward) = asset_farm
             .rewards
             .iter_mut()
-            .find(|r| r.token_id == token_id)
+            .find(|r| r.token_id == reward_token_id)
         {
             asset_farm_reward.reward_per_day = new_reward_per_day.into();
             asset_farm_reward.booster_log_base = new_booster_log_base.into();
-            asset_farm_reward.remaining_rewards += extra_amount.0;
+            asset_farm_reward.remaining_rewards += reward_amount.0;
         } else {
             asset_farm.rewards.push(AssetFarmReward {
-                token_id,
+                token_id: reward_token_id,
                 reward_per_day: new_reward_per_day.into(),
                 booster_log_base: new_booster_log_base.into(),
-                remaining_rewards: extra_amount.0,
+                remaining_rewards: reward_amount.0,
                 boosted_shares: 0,
                 reward_per_share: Default::default(),
             });

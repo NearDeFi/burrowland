@@ -65,7 +65,9 @@ impl Contract {
                 block_timestamp,
                 rewards: vec![],
             });
-        if account_farm.block_timestamp != block_timestamp {
+        if account_farm.block_timestamp != block_timestamp
+            || account_farm.rewards.len() != asset_farm.rewards.len()
+        {
             account_farm.block_timestamp = block_timestamp;
             for (
                 i,
@@ -106,6 +108,9 @@ impl Contract {
                 .contains(&FarmId::Supplied(config.booster_token_id.clone()))
         {
             account.add_all_affected_farms();
+        }
+        if account.affected_farms.is_empty() {
+            return;
         }
         let mut all_rewards: HashMap<TokenId, Balance> = HashMap::new();
         let mut i = 0;
@@ -154,7 +159,7 @@ impl Contract {
                     } else {
                         0
                     };
-                    account_farm_reward.boosted_shares += shares + extra_shares;
+                    account_farm_reward.boosted_shares = shares + extra_shares;
                     asset_farm_reward.boosted_shares += account_farm_reward.boosted_shares;
                 }
             }

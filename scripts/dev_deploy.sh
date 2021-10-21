@@ -101,21 +101,7 @@ near call $CONTRACT_ID --accountId=$OWNER_ID add_asset '{
 
 # DAI APR is 8%, to verify run ./scripts/apr_to_rate.py 8
 # Volatility ratio is 95%, since it's stable and liquid on NEAR
-near call $CONTRACT_ID --accountId=$OWNER_ID add_asset '{
-  "token_id": "'$DAI_TOKEN_ID'",
-  "asset_config": {
-    "reserve_ratio": 2500,
-    "target_utilization": 8000,
-    "target_utilization_rate": "1000000000002440418605283556",
-    "max_utilization_rate": "1000000000039724853136740579",
-    "volatility_ratio": 9500,
-    "extra_decimals": 0,
-    "can_deposit": true,
-    "can_withdraw": true,
-    "can_use_as_collateral": true,
-    "can_borrow": true
-  }
-}' --amount=$ONE_YOCTO --gas=$GAS
+
 
 # USDT APR is 8%, to verify run ./scripts/apr_to_rate.py 8
 # Volatility ratio is 95%, since it's stable and liquid on NEAR
@@ -182,13 +168,14 @@ near call $USDT_TOKEN_ID --accountId=$OWNER_ID mint '{
 near call $WNEAR_TOKEN_ID --accountId=$OWNER_ID near_deposit '{}' --amount=120
 
 echo -e "$LG>>>>>>>>>>>>>>$TC Adding some reserves from the owner: $LG<<<<<<<<<<<<<<$NC"
+echo -e "$LG>>>>>>>>>>>>>>$TC * 20000 BOOSTER $NC"
 echo -e "$LG>>>>>>>>>>>>>>$TC * 2 wETH $NC"
 echo -e "$LG>>>>>>>>>>>>>>$TC * 2000 DAI $NC"
 echo -e "$LG>>>>>>>>>>>>>>$TC * 2000 USDT $NC"
 echo -e "$LG>>>>>>>>>>>>>>$TC * 20 wNEAR $NC"
-near call $WETH_TOKEN_ID --accountId=$OWNER_ID ft_transfer_call '{
+near call $BOOSTER_TOKEN_ID --accountId=$OWNER_ID ft_transfer_call '{
   "receiver_id": "'$CONTRACT_ID'",
-  "amount": "2000000000000000000",
+  "amount": "20000000000000000000000",
   "msg": "\"DepositToReserve\""
 }' --amount=$ONE_YOCTO --gas=$GAS
 
