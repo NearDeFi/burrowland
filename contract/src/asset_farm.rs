@@ -11,22 +11,28 @@ const NANOS_PER_DAY: Duration = 24 * 60 * 60 * 10u64.pow(9);
 pub struct AssetFarm {
     #[serde(with = "u64_dec_format")]
     pub block_timestamp: Timestamp,
+    /// Rewards for the given farm
     pub rewards: Vec<AssetFarmReward>,
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AssetFarmReward {
+    /// The reward token ID.
     pub token_id: TokenId,
+    /// The amount of reward distributed per day.
     #[serde(with = "u128_dec_format")]
     pub reward_per_day: Balance,
-    /// Including decimals
+    /// The log base for the booster. Used to compute boosted shares per account.
+    /// Including decimals of the booster.
     #[serde(with = "u128_dec_format")]
     pub booster_log_base: Balance,
 
+    /// The amount of rewards remaining to distribute.
     #[serde(with = "u128_dec_format")]
     pub remaining_rewards: Balance,
 
+    /// The total number of boosted shares.
     #[serde(with = "u128_dec_format")]
     pub boosted_shares: Balance,
     #[serde(skip)]

@@ -1,5 +1,11 @@
 # The list of APIs that are provided by the contract
 
+Notes:
+- `u128_dec_format`, `WrappedBalance`, `Shares` means the value is passed as a decimal string representation.
+- `u64` means the value is passed as an integer.
+- `Option<_>` means the value can be omitted, or provided as `null`.
+- Rust enums are serialized using JSON objects. E.g. `FarmId::Supplied("token.near")` is serialized as `{"Supplied": "token.near"}`
+
 ```rust
 trait Contract {
     /// Initializes the contract with the given config. Needs to be called once.
@@ -21,12 +27,13 @@ trait Contract {
     #[payable]
     fn execute(&mut self, actions: Vec<Action>);
 
-    /// Returns an asset for a given token_id.
-    fn get_asset(&self, token_id: ValidAccountId) -> Option<Asset>;
+    /// Returns a detailed view asset for a given token_id.
+    /// The detailed view includes current APR and corresponding farms.
+    fn get_asset(&self, token_id: ValidAccountId) -> Option<AssetDetailedView>;
 
-    /// Returns an list of pairs (token_id, asset) for assets a given list of token_id.
-    /// Only returns pais for existing assets.
-    fn get_assets(&self, token_ids: Vec<ValidAccountId>) -> Vec<(TokenId, Asset)>;
+    /// Returns an list of detailed view assets a given list of token_id.
+    /// Only returns existing assets.
+    fn get_assets(&self, token_ids: Vec<ValidAccountId>) -> Vec<AssetDetailedView>;
 
     /// Returns a list of pairs (token_id, asset) for assets from a given index up to a given limit.
     fn get_assets_paged(
@@ -34,6 +41,13 @@ trait Contract {
         from_index: Option<u64>,
         limit: Option<u64>,
     ) -> Vec<(TokenId, Asset)>;
+
+    /// Returns a list of detailed view assets from a given index up to a given limit.
+    fn get_assets_paged_detailed(
+        &self,
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    ) -> Vec<AssetDetailedView>;
 
     /// Returns the current config.
     fn get_config(&self) -> Config;
@@ -175,6 +189,59 @@ pub struct CollateralAsset {
 pub struct BorrowedAsset {
     pub token_id: TokenId,
     pub shares: Shares,
+}
+
+pub struct AssetDetailedView {
+    pub token_id: TokenId,
+    /// Total supplied including collateral, but excluding reserved.
+    pub supplied: Pool,
+    /// Total borrowed.
+    pub borrowed: Pool,
+    /// The amount reserved for the stability. This amount can also be borrowed and affects
+    /// borrowing rate.
+    #[serde(with = "u128_dec_format")]
+    pub reserved: Balance,
+    /// When the asset was last updated. It's always going to be the current block timestamp.
+    #[serde(with = "u64_dec_format")]
+    pub last_update_timestamp: Timestamp,
+    /// The asset config.
+    pub config: AssetConfig,
+    /// Current APR excluding farms
+    pub current_apr: BigDecimal,
+    /// Asset farms
+    pub farms: Vec<AssetFarmView>,
+}
+
+pub struct AssetFarmView {
+    pub farm_id: FarmId,
+    pub rewards: Vec<AssetFarmReward>,
+}
+
+pub struct AssetFarm {
+    #[serde(with = "u64_dec_format")]
+    pub block_timestamp: Timestamp,
+    /// Rewards for the given farm
+    pub rewards: Vec<AssetFarmReward>,
+}
+
+pub struct AssetFarmReward {
+    /// The reward token ID.
+    pub token_id: TokenId,
+    /// The amount of reward distributed per day.
+    #[serde(with = "u128_dec_format")]
+    pub reward_per_day: Balance,
+    /// The log base for the booster. Used to compute boosted shares per account.
+    /// Including decimals of the booster.
+    #[serde(with = "u128_dec_format")]
+    pub booster_log_base: Balance,
+
+    /// The amount of rewards remaining to distribute.
+    #[serde(with = "u128_dec_format")]
+    pub remaining_rewards: Balance,
+
+    /// The total number of boosted shares.
+    #[serde(with = "u128_dec_format")]
+    pub boosted_shares: Balance,
 }
 
 pub struct Asset {
