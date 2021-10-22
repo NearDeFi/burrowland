@@ -17,8 +17,10 @@ pub struct AssetDetailedView {
     pub last_update_timestamp: Timestamp,
     /// The asset config.
     pub config: AssetConfig,
-    /// Current APR excluding farms
-    pub current_apr: BigDecimal,
+    /// Current APR excluding farms for supplying the asset.
+    pub supply_apr: BigDecimal,
+    /// Current APR excluding farms for borrowing the asset.
+    pub borrow_apr: BigDecimal,
     /// Asset farms
     pub farms: Vec<AssetFarmView>,
 }
@@ -43,7 +45,8 @@ impl Contract {
                 rewards: asset_farm.rewards,
             })
             .collect();
-        let current_apr = asset.get_apr();
+        let supply_apr = asset.get_supply_apr();
+        let borrow_apr = asset.get_borrow_apr();
         let Asset {
             supplied,
             borrowed,
@@ -58,7 +61,8 @@ impl Contract {
             reserved,
             last_update_timestamp,
             config,
-            current_apr,
+            supply_apr,
+            borrow_apr,
             farms,
         }
     }

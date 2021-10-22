@@ -1,7 +1,8 @@
 # The list of APIs that are provided by the contract
 
 Notes:
-- `u128_dec_format`, `WrappedBalance`, `Shares` means the value is passed as a decimal string representation.
+- `u128_dec_format`, `WrappedBalance`, `Shares` means the value is passed as a decimal string representation. E.g. `1` serialized as `"1"`
+- `BigDecimal` is serialized as floating string representation. E.g. `1.5` serialized as `"1.5"`
 - `u64` means the value is passed as an integer.
 - `Option<_>` means the value can be omitted, or provided as `null`.
 - Rust enums are serialized using JSON objects. E.g. `FarmId::Supplied("token.near")` is serialized as `{"Supplied": "token.near"}`
@@ -138,7 +139,10 @@ pub struct AssetView {
     pub token_id: TokenId,
     #[serde(with = "u128_dec_format")]
     pub balance: Balance,
+    /// The number of shares this account holds in the corresponding asset pool
     pub shares: Shares,
+    /// The current APR for this asset (either supply or borrow APR).
+    pub apr: BigDecimal,
 }
 
 pub enum FarmId {
@@ -206,8 +210,10 @@ pub struct AssetDetailedView {
     pub last_update_timestamp: Timestamp,
     /// The asset config.
     pub config: AssetConfig,
-    /// Current APR excluding farms
-    pub current_apr: BigDecimal,
+    /// Current APR excluding farms for supplying the asset.
+    pub supply_apr: BigDecimal,
+    /// Current APR excluding farms for borrowing the asset.
+    pub borrow_apr: BigDecimal,
     /// Asset farms
     pub farms: Vec<AssetFarmView>,
 }

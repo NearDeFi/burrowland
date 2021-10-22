@@ -1,15 +1,18 @@
 use crate::*;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AssetView {
     pub token_id: TokenId,
     #[serde(with = "u128_dec_format")]
     pub balance: Balance,
+    /// The number of shares this account holds in the corresponding asset pool
     pub shares: Shares,
+    /// The current APR for this asset (either supply or borrow APR).
+    pub apr: BigDecimal,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AccountDetailedView {
     pub account_id: AccountId,
@@ -23,14 +26,14 @@ pub struct AccountDetailedView {
     pub farms: Vec<AccountFarmView>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AccountFarmView {
     pub farm_id: FarmId,
     pub rewards: Vec<AccountFarmRewardView>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AccountFarmRewardView {
     pub asset_farm_reward: AssetFarmReward,
@@ -78,48 +81,45 @@ impl Contract {
             supplied: unordered_map_pagination(&account.supplied, None, None)
                 .into_iter()
                 .map(|(token_id, AccountAsset { shares })| {
-                    let balance = self
-                        .internal_unwrap_asset(&token_id)
-                        .supplied
-                        .shares_to_amount(shares, false);
-                    AssetView {
-                        token_id,
-                        balance,
-                        shares,
-                    }
+                    self.get_asset_view(token_id, shares, false)
                 })
                 .collect(),
             collateral: account
                 .collateral
                 .into_iter()
                 .map(|CollateralAsset { token_id, shares }| {
-                    let balance = self
-                        .internal_unwrap_asset(&token_id)
-                        .supplied
-                        .shares_to_amount(shares, false);
-                    AssetView {
-                        token_id,
-                        balance,
-                        shares,
-                    }
+                    self.get_asset_view(token_id, shares, false)
                 })
                 .collect(),
             borrowed: account
                 .borrowed
                 .into_iter()
                 .map(|BorrowedAsset { token_id, shares }| {
-                    let balance = self
-                        .internal_unwrap_asset(&token_id)
-                        .borrowed
-                        .shares_to_amount(shares, true);
-                    AssetView {
-                        token_id,
-                        balance,
-                        shares,
-                    }
+                    self.get_asset_view(token_id, shares, true)
                 })
                 .collect(),
             farms,
+        }
+    }
+
+    fn get_asset_view(&self, token_id: TokenId, shares: Shares, is_borrowing: bool) -> AssetView {
+        let asset = self.internal_unwrap_asset(&token_id);
+        let apr = if is_borrowing {
+            asset.get_borrow_apr()
+        } else {
+            asset.get_supply_apr()
+        };
+        let balance = if is_borrowing {
+            asset.borrowed.shares_to_amount(shares, true)
+        } else {
+            asset.supplied.shares_to_amount(shares, false)
+        };
+
+        AssetView {
+            token_id,
+            balance,
+            shares,
+            apr,
         }
     }
 }

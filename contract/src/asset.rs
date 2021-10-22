@@ -58,9 +58,24 @@ impl Asset {
             .get_rate(self.borrowed.balance, self.supplied.balance + self.reserved)
     }
 
-    pub fn get_apr(&self) -> BigDecimal {
+    pub fn get_borrow_apr(&self) -> BigDecimal {
         let rate = self.get_rate();
         rate.pow(NANOS_PER_YEAR) - BigDecimal::one()
+    }
+
+    pub fn get_supply_apr(&self) -> BigDecimal {
+        if self.supplied.balance == 0 || self.borrowed.balance == 0 {
+            return BigDecimal::zero();
+        }
+
+        let borrow_apr = self.get_borrow_apr();
+        if borrow_apr == BigDecimal::zero() {
+            return borrow_apr;
+        }
+
+        let interest = borrow_apr.round_mul_u128(self.borrowed.balance);
+        let supply_interest = ratio(interest, MAX_RATIO - self.config.reserve_ratio);
+        BigDecimal::from(supply_interest).div_u128(self.supplied.balance)
     }
 
     // n = 31536000000 ms in a year (365 days)
