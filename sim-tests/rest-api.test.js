@@ -87,16 +87,21 @@ describe("Accounts", () => {
             {account_id: alice}, {});
         expect(account_1.account_id).toBe(alice);
         expect(account_1.supplied.length).toBeGreaterThan(0);
-        expect(account_1.supplied[0].token_id).toBe('usdt.fakes.testnet');
 
-        expect(utils.ConvertFromFTe18(account_1.supplied[0].balance))
-            .toBe(utils.ConvertFromFTe18(account_initial?.supplied[0]?.balance) + deposit_1);
-        expect(utils.ConvertFromFTe18(account_1.supplied[0].shares))
-            .toBe(utils.ConvertFromFTe18(account_initial?.supplied[0]?.shares) + deposit_1);
+        const usdt_supplied_1 = account_1.supplied.filter(token => token.token_id === 'usdt.fakes.testnet');
+        expect(usdt_supplied_1.length).toBe(1);
+
+        const usdt_supplied_initial = account_initial.supplied.filter(token => token.token_id === 'usdt.fakes.testnet');
+
+        expect(utils.ConvertFromFTe18(usdt_supplied_1[0]?.balance))
+            .toBe(utils.ConvertFromFTe18(usdt_supplied_initial[0]?.balance) + deposit_1);
+        expect(utils.ConvertFromFTe18(usdt_supplied_1[0]?.shares))
+            .toBe(utils.ConvertFromFTe18(usdt_supplied_initial[0]?.shares) + deposit_1);
 
         const asset_2 = await burrow.view("get_asset",
             {token_id: usdt_contract_id}, {});
-        expect(utils.ConvertFromFTe18(asset_2.supplied.shares) - utils.ConvertFromFTe18(asset_1.supplied.shares)).toBe(5)
+        expect(utils.ConvertFromFTe18(asset_2.supplied.shares)
+            - utils.ConvertFromFTe18(asset_1.supplied.shares)).toBe(5)
 
         const deposit_2 = 3;
         const ft_transfer_2 = await usdt.call("ft_transfer_call", {
@@ -108,10 +113,14 @@ describe("Accounts", () => {
 
         const account_2 = await burrow.view("get_account",
             {account_id: alice}, {});
-        expect(utils.ConvertFromFTe18(account_2.supplied[0].balance))
-            .toBe(utils.ConvertFromFTe18(account_1?.supplied[0]?.balance) + deposit_2);
-        expect(utils.ConvertFromFTe18(account_2.supplied[0].shares))
-            .toBe(utils.ConvertFromFTe18(account_1?.supplied[0]?.shares) + deposit_2);
+
+        const usdt_supplied_2 = account_2.supplied.filter(token => token.token_id === 'usdt.fakes.testnet');
+        expect(usdt_supplied_2.length).toBe(1);
+
+        expect(utils.ConvertFromFTe18(usdt_supplied_2[0]?.balance))
+            .toBe(utils.ConvertFromFTe18(usdt_supplied_1[0]?.balance) + deposit_2);
+        expect(utils.ConvertFromFTe18(usdt_supplied_2[0]?.shares))
+            .toBe(utils.ConvertFromFTe18(usdt_supplied_1[0]?.shares) + deposit_2);
 
         const deposit_3 = 0;
         const ft_transfer_3 = await usdt.call("ft_transfer_call", {
@@ -123,10 +132,14 @@ describe("Accounts", () => {
 
         const account_3 = await burrow.view("get_account",
             {account_id: alice}, {});
-        expect(utils.ConvertFromFTe18(account_3.supplied[0].balance))
-            .toBe(utils.ConvertFromFTe18(account_2?.supplied[0]?.balance));
-        expect(utils.ConvertFromFTe18(account_3.supplied[0].shares))
-            .toBe(utils.ConvertFromFTe18(account_2?.supplied[0]?.shares));
+
+        const usdt_supplied_3 = account_2.supplied.filter(token => token.token_id === 'usdt.fakes.testnet');
+        expect(usdt_supplied_3.length).toBe(1);
+
+        expect(utils.ConvertFromFTe18(usdt_supplied_3[0]?.balance))
+            .toBe(utils.ConvertFromFTe18(usdt_supplied_2[0]?.balance));
+        expect(utils.ConvertFromFTe18(usdt_supplied_3[0]?.shares))
+            .toBe(utils.ConvertFromFTe18(usdt_supplied_2[0]?.shares));
     });
 });
 
@@ -134,6 +147,8 @@ describe("Collateral", () => {
     test('Provide token as a collateral', async () => {
         const account_1 = await burrow.view("get_account",
             {account_id: alice}, {});
+        const usdt_collateral_1 = account_1.collateral.filter(token => token.token_id === 'usdt.fakes.testnet');
+        const usdt_supplied_1 = account_1.supplied.filter(token => token.token_id === 'usdt.fakes.testnet');
 
         const execute = await burrow.call("execute",
             {
@@ -143,21 +158,23 @@ describe("Collateral", () => {
             },
             {
                 account_id: alice,
-                tokens: 1
+                tokens: 1,
+                log_errors: true
             })
         expect(execute.is_error).toBeFalsy();
 
         const account_2 = await burrow.view("get_account",
             {account_id: alice}, {});
-        
-        expect(account_2.collateral.length).toBeGreaterThan(0);
-        expect(account_2.collateral[0].token_id).toBe(account_1.supplied[0].token_id);
-        expect(utils.ConvertFromFTe18(account_2.collateral[0].balance)
-            - utils.ConvertFromFTe18(account_1?.collateral[0]?.balance))
-            .toBe(utils.ConvertFromFTe18(account_1.supplied[0].balance));
-        expect(utils.ConvertFromFTe18(account_2.collateral[0].shares)
-            - utils.ConvertFromFTe18(account_1?.collateral[0]?.shares))
-            .toBe(utils.ConvertFromFTe18(account_1.supplied[0].shares));
+
+        const usdt_collateral_2 = account_2.collateral.filter(token => token.token_id === 'usdt.fakes.testnet');
+        expect(usdt_collateral_2.length).toBe(1);
+
+        expect(utils.ConvertFromFTe18(usdt_collateral_2[0].balance)
+            - utils.ConvertFromFTe18(usdt_collateral_1[0]?.balance))
+            .toBe(utils.ConvertFromFTe18(usdt_supplied_1[0].balance));
+        expect(utils.ConvertFromFTe18(usdt_collateral_2[0].shares)
+            - utils.ConvertFromFTe18(usdt_collateral_1[0]?.shares))
+            .toBe(utils.ConvertFromFTe18(usdt_supplied_1[0].shares));
 
         const execute_wrong_account = await burrow.call("execute",
             {
@@ -304,12 +321,62 @@ describe("Repay", () => {
             {account_id: alice}, {});
 
         expect(account_2.borrowed.length).toBe(0);
-        //const dai_supplied = account_2.supplied.filter(token => token.token_id === 'dai.fakes.testnet');
 
         expect(utils.ConvertFromFTe18(account_1.borrowed[0].balance) +
             utils.ConvertFromFTe18(account_2.supplied[0].balance)).toBeCloseTo(repay_amount_1);
     });
 });
 
+describe("Decrease collateral", () => {
+    test('Decreasing collateral without providing prices', async () => {
+        const account_1 = await burrow.view("get_account",
+            {account_id: alice}, {});
+        const usdt_supplied_1 = account_1.supplied.filter(token => token.token_id === 'usdt.fakes.testnet');
+        const usdt_collateral_1 = account_1.collateral.filter(token => token.token_id === 'usdt.fakes.testnet');
+
+        const decrease_collateral_wrong_asset = await burrow.call("execute",
+            {
+                actions: [{
+                    DecreaseCollateral: {
+                        token_id: 'dai.fakes.testnet'
+                    }
+                }]
+            },
+            {
+                account_id: alice,
+                tokens: 1,
+                log_errors: true
+            })
+        expect(decrease_collateral_wrong_asset.is_error).toBeTruthy();
+
+        const decrease_collateral = await burrow.call("execute",
+            {
+                actions: [{
+                    DecreaseCollateral: {
+                        token_id: 'usdt.fakes.testnet'
+                    }
+                }]
+            },
+            {
+                account_id: alice,
+                tokens: 1,
+                log_errors: true
+            })
+        expect(decrease_collateral.is_error).toBeFalsy();
+
+        const account_2 = await burrow.view("get_account", {account_id: alice}, {});
+        const usdt_supplied_2 = account_2.supplied.filter(token => token.token_id === 'usdt.fakes.testnet');
+        const usdt_collateral_2 = account_2.collateral.filter(token => token.token_id === 'usdt.fakes.testnet');
+
+        expect(usdt_collateral_2.length).toBe(0);
+        expect(usdt_supplied_2.length).toBeGreaterThan(0);
+        expect(utils.ConvertFromFTe18(usdt_collateral_1[0]?.balance) +
+            utils.ConvertFromFTe18(usdt_supplied_1[0]?.balance))
+            .toBeCloseTo(utils.ConvertFromFTe18(usdt_supplied_2[0]?.balance));
+        expect(utils.ConvertFromFTe18(usdt_collateral_1[0]?.shares) +
+            utils.ConvertFromFTe18(usdt_supplied_1[0]?.shares))
+            .toBeCloseTo(utils.ConvertFromFTe18(usdt_supplied_2[0]?.shares));
+    });
+});
 
 
