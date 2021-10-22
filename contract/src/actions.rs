@@ -122,7 +122,7 @@ impl Contract {
                         account,
                         storage,
                         &prices,
-                        liquidation_account_id,
+                        liquidation_account_id.as_ref(),
                         in_assets,
                         out_assets,
                     );
@@ -320,12 +320,12 @@ impl Contract {
         account: &mut Account,
         storage: &mut Storage,
         prices: &Prices,
-        liquidation_account_id: ValidAccountId,
+        liquidation_account_id: &AccountId,
         in_assets: Vec<AssetAmount>,
         out_assets: Vec<AssetAmount>,
     ) {
         let (mut liquidation_account, mut liquidation_storage) =
-            self.internal_unwrap_account_with_storage(liquidation_account_id.as_ref());
+            self.internal_unwrap_account_with_storage(liquidation_account_id);
 
         let max_discount = self.compute_max_discount(&liquidation_account, &prices);
         assert!(
@@ -400,7 +400,7 @@ impl Contract {
                     "Account {} has to cover extra storage of {} bytes for liquidation account {}",
                     account_id,
                     extra_bytes,
-                    liquidation_account_id.as_ref(),
+                    liquidation_account_id,
                 );
                 liquidation_storage.initial_storage_usage += extra_bytes;
                 storage.initial_storage_usage += available_bytes;
@@ -412,7 +412,7 @@ impl Contract {
             storage.initial_storage_usage -= released_bytes;
         }
         self.internal_set_account(
-            liquidation_account_id.as_ref(),
+            liquidation_account_id,
             liquidation_account,
             liquidation_storage,
         );
@@ -420,7 +420,7 @@ impl Contract {
         log!(
             "Account {} liquidates account {}: takes {} for repaying {}",
             account_id,
-            liquidation_account_id.as_ref(),
+            liquidation_account_id,
             collateral_taken_sum,
             borrowed_repaid_sum
         );
