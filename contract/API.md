@@ -6,6 +6,7 @@ Notes:
 - `u64` means the value is passed as an integer.
 - `Option<_>` means the value can be omitted, or provided as `null`.
 - Rust enums are serialized using JSON objects. E.g. `FarmId::Supplied("token.near")` is serialized as `{"Supplied": "token.near"}`
+- `HashMap<_, _>` is serialized using JSON objects.
 
 ```rust
 trait Contract {
@@ -156,6 +157,7 @@ pub struct AccountFarmView {
 }
 
 pub struct AccountFarmRewardView {
+    pub reward_token_id: TokenId,
     pub asset_farm_reward: AssetFarmReward,
     #[serde(with = "u128_dec_format")]
     pub boosted_shares: Balance,
@@ -220,19 +222,18 @@ pub struct AssetDetailedView {
 
 pub struct AssetFarmView {
     pub farm_id: FarmId,
-    pub rewards: Vec<AssetFarmReward>,
+    /// Active rewards for the farm
+    pub rewards: HashMap<TokenId, AssetFarmReward>,
 }
 
 pub struct AssetFarm {
     #[serde(with = "u64_dec_format")]
     pub block_timestamp: Timestamp,
-    /// Rewards for the given farm
-    pub rewards: Vec<AssetFarmReward>,
+    /// Active rewards for the farm
+    pub rewards: HashMap<TokenId, AssetFarmReward>,
 }
 
 pub struct AssetFarmReward {
-    /// The reward token ID.
-    pub token_id: TokenId,
     /// The amount of reward distributed per day.
     #[serde(with = "u128_dec_format")]
     pub reward_per_day: Balance,

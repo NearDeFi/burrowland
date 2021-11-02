@@ -56,6 +56,7 @@ enum StorageKey {
     Storage,
     Assets,
     AssetFarms,
+    InactiveAssetFarmRewards { farm_id: FarmId },
     AssetIds,
     Config,
 }

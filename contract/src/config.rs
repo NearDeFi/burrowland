@@ -109,7 +109,8 @@ impl Contract {
         let reward_token_id: TokenId = reward_token_id.into();
         let mut reward_asset = self.internal_unwrap_asset(&reward_token_id);
         assert!(
-            reward_asset.reserved >= reward_amount.0,
+            reward_asset.reserved >= reward_amount.0
+                && reward_asset.available_amount() >= reward_amount.0,
             "Not enough reserved reward balance"
         );
         reward_asset.reserved -= reward_amount.0;
@@ -118,27 +119,23 @@ impl Contract {
             .internal_get_asset_farm(&farm_id)
             .unwrap_or_else(|| AssetFarm {
                 block_timestamp: env::block_timestamp(),
-                rewards: vec![],
+                rewards: HashMap::new(),
+                inactive_rewards: LookupMap::new(StorageKey::InactiveAssetFarmRewards {
+                    farm_id: farm_id.clone(),
+                }),
             });
 
-        if let Some(asset_farm_reward) = asset_farm
+        let mut asset_farm_reward = asset_farm
             .rewards
-            .iter_mut()
-            .find(|r| r.token_id == reward_token_id)
-        {
-            asset_farm_reward.reward_per_day = new_reward_per_day.into();
-            asset_farm_reward.booster_log_base = new_booster_log_base.into();
-            asset_farm_reward.remaining_rewards += reward_amount.0;
-        } else {
-            asset_farm.rewards.push(AssetFarmReward {
-                token_id: reward_token_id,
-                reward_per_day: new_reward_per_day.into(),
-                booster_log_base: new_booster_log_base.into(),
-                remaining_rewards: reward_amount.0,
-                boosted_shares: 0,
-                reward_per_share: Default::default(),
-            });
-        }
+            .remove(&reward_token_id)
+            .or_else(|| asset_farm.internal_remove_inactive_asset_farm_reward(&reward_token_id))
+            .unwrap_or_default();
+        asset_farm_reward.reward_per_day = new_reward_per_day.into();
+        asset_farm_reward.booster_log_base = new_booster_log_base.into();
+        asset_farm_reward.remaining_rewards += reward_amount.0;
+        asset_farm
+            .rewards
+            .insert(reward_token_id, asset_farm_reward);
         self.internal_set_asset_farm(&farm_id, asset_farm);
     }
 }

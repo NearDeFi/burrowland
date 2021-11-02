@@ -101,7 +101,21 @@ near call $CONTRACT_ID --accountId=$OWNER_ID add_asset '{
 
 # DAI APR is 8%, to verify run ./scripts/apr_to_rate.py 8
 # Volatility ratio is 95%, since it's stable and liquid on NEAR
-
+near call $CONTRACT_ID --accountId=$OWNER_ID add_asset '{
+  "token_id": "'$DAI_TOKEN_ID'",
+  "asset_config": {
+    "reserve_ratio": 2500,
+    "target_utilization": 8000,
+    "target_utilization_rate": "1000000000002440418605283556",
+    "max_utilization_rate": "1000000000039724853136740579",
+    "volatility_ratio": 9500,
+    "extra_decimals": 0,
+    "can_deposit": true,
+    "can_withdraw": true,
+    "can_use_as_collateral": true,
+    "can_borrow": true
+  }
+}' --amount=$ONE_YOCTO --gas=$GAS
 
 # USDT APR is 8%, to verify run ./scripts/apr_to_rate.py 8
 # Volatility ratio is 95%, since it's stable and liquid on NEAR

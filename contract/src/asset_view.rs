@@ -29,7 +29,8 @@ pub struct AssetDetailedView {
 #[serde(crate = "near_sdk::serde")]
 pub struct AssetFarmView {
     pub farm_id: FarmId,
-    pub rewards: Vec<AssetFarmReward>,
+    /// Active rewards for the farm
+    pub rewards: HashMap<TokenId, AssetFarmReward>,
 }
 
 impl Contract {

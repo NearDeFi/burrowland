@@ -6,20 +6,53 @@ static ASSET_FARMS: Lazy<Mutex<HashMap<FarmId, Option<AssetFarm>>>> =
 const NANOS_PER_DAY: Duration = 24 * 60 * 60 * 10u64.pow(9);
 
 /// A data required to keep track of a farm for an account.
-#[derive(BorshSerialize, BorshDeserialize, Clone, Serialize, Deserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AssetFarm {
     #[serde(with = "u64_dec_format")]
     pub block_timestamp: Timestamp,
-    /// Rewards for the given farm
-    pub rewards: Vec<AssetFarmReward>,
+    /// Active rewards for the farm
+    pub rewards: HashMap<TokenId, AssetFarmReward>,
+    /// Inactive rewards
+    #[serde(skip_serializing)]
+    pub inactive_rewards: LookupMap<TokenId, VAssetFarmReward>,
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Clone, Serialize, Deserialize)]
+impl Clone for AssetFarm {
+    fn clone(&self) -> Self {
+        Self {
+            block_timestamp: self.block_timestamp,
+            rewards: self.rewards.clone(),
+            inactive_rewards: BorshDeserialize::try_from_slice(
+                &self.inactive_rewards.try_to_vec().unwrap(),
+            )
+            .unwrap(),
+        }
+    }
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Clone)]
+pub enum VAssetFarmReward {
+    Current(AssetFarmReward),
+}
+
+impl From<VAssetFarmReward> for AssetFarmReward {
+    fn from(v: VAssetFarmReward) -> Self {
+        match v {
+            VAssetFarmReward::Current(c) => c,
+        }
+    }
+}
+
+impl From<AssetFarmReward> for VAssetFarmReward {
+    fn from(c: AssetFarmReward) -> Self {
+        VAssetFarmReward::Current(c)
+    }
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Clone, Serialize, Default)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AssetFarmReward {
-    /// The reward token ID.
-    pub token_id: TokenId,
     /// The amount of reward distributed per day.
     #[serde(with = "u128_dec_format")]
     pub reward_per_day: Balance,
@@ -47,7 +80,8 @@ impl AssetFarm {
         }
         let time_diff = block_timestamp - self.block_timestamp;
         self.block_timestamp = block_timestamp;
-        for reward in &mut self.rewards {
+        let mut new_inactive_reward = vec![];
+        for (token_id, reward) in self.rewards.iter_mut() {
             if reward.boosted_shares == 0 {
                 continue;
             }
@@ -62,7 +96,37 @@ impl AssetFarm {
             reward.remaining_rewards -= acquired_rewards;
             reward.reward_per_share = reward.reward_per_share
                 + BigDecimal::from(acquired_rewards) / BigDecimal::from(reward.boosted_shares);
+            if reward.remaining_rewards == 0 {
+                new_inactive_reward.push(token_id.clone());
+            }
         }
+        for token_id in new_inactive_reward {
+            let reward = self.rewards.remove(&token_id).unwrap();
+            self.internal_set_inactive_asset_farm_reward(&token_id, reward);
+        }
+    }
+
+    pub fn internal_get_inactive_asset_farm_reward(
+        &self,
+        token_id: &TokenId,
+    ) -> Option<AssetFarmReward> {
+        self.inactive_rewards.get(token_id).map(|o| o.into())
+    }
+
+    pub fn internal_remove_inactive_asset_farm_reward(
+        &mut self,
+        token_id: &TokenId,
+    ) -> Option<AssetFarmReward> {
+        self.inactive_rewards.remove(token_id).map(|o| o.into())
+    }
+
+    pub fn internal_set_inactive_asset_farm_reward(
+        &mut self,
+        token_id: &TokenId,
+        asset_farm_reward: AssetFarmReward,
+    ) {
+        self.inactive_rewards
+            .insert(token_id, &asset_farm_reward.into());
     }
 }
 

@@ -36,6 +36,7 @@ pub struct AccountFarmView {
 #[derive(Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub struct AccountFarmRewardView {
+    pub reward_token_id: TokenId,
     pub asset_farm_reward: AssetFarmReward,
     #[serde(with = "u128_dec_format")]
     pub boosted_shares: Balance,
@@ -49,29 +50,39 @@ impl Contract {
             .farms
             .keys()
             .map(|farm_id| {
-                let asset_farm = self.internal_unwrap_asset_farm(&farm_id);
-                let (account_farm, new_rewards) =
+                let mut asset_farm = self.internal_unwrap_asset_farm(&farm_id);
+                let (account_farm, new_rewards, inactive_rewards) =
                     self.internal_account_farm_claim(&account, &farm_id, &asset_farm);
                 AccountFarmView {
                     farm_id,
                     rewards: account_farm
                         .rewards
                         .into_iter()
-                        .zip(asset_farm.rewards.into_iter())
-                        .map(
-                            |(AccountFarmReward { boosted_shares, .. }, asset_farm_reward)| {
-                                let unclaimed_amount = new_rewards
-                                    .iter()
-                                    .find(|(token_id, _)| token_id == &asset_farm_reward.token_id)
-                                    .map(|(_, amount)| *amount)
-                                    .unwrap_or(0);
-                                AccountFarmRewardView {
-                                    asset_farm_reward,
-                                    boosted_shares,
-                                    unclaimed_amount,
-                                }
-                            },
-                        )
+                        .map(|(token_id, AccountFarmReward { boosted_shares, .. })| {
+                            (token_id, boosted_shares)
+                        })
+                        .chain(inactive_rewards)
+                        .map(|(reward_token_id, boosted_shares)| {
+                            let asset_farm_reward = asset_farm
+                                .rewards
+                                .remove(&reward_token_id)
+                                .or_else(|| {
+                                    asset_farm
+                                        .internal_get_inactive_asset_farm_reward(&reward_token_id)
+                                })
+                                .unwrap();
+                            let unclaimed_amount = new_rewards
+                                .iter()
+                                .find(|(token_id, _)| token_id == &reward_token_id)
+                                .map(|(_, amount)| *amount)
+                                .unwrap_or(0);
+                            AccountFarmRewardView {
+                                reward_token_id,
+                                asset_farm_reward,
+                                boosted_shares,
+                                unclaimed_amount,
+                            }
+                        })
                         .collect(),
                 }
             })
