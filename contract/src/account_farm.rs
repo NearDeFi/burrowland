@@ -20,7 +20,7 @@ impl FarmId {
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct AccountFarm {
     pub block_timestamp: Timestamp,
-    pub rewards: Vec<AccountFarmReward>,
+    pub rewards: HashMap<TokenId, AccountFarmReward>,
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -54,46 +54,76 @@ impl Contract {
         account: &Account,
         farm_id: &FarmId,
         asset_farm: &AssetFarm,
-    ) -> (AccountFarm, Vec<(TokenId, Balance)>) {
-        let mut new_rewards = Vec::new();
+    ) -> (
+        AccountFarm,
+        Vec<(TokenId, Balance)>,
+        Vec<(TokenId, Balance)>,
+    ) {
+        let mut new_rewards = vec![];
+        let mut inactive_rewards = vec![];
         let block_timestamp = env::block_timestamp();
         let mut account_farm: AccountFarm = account
             .farms
             .get(farm_id)
             .map(|v| v.into())
             .unwrap_or_else(|| AccountFarm {
-                block_timestamp,
-                rewards: vec![],
+                block_timestamp: 0,
+                rewards: HashMap::new(),
             });
-        if account_farm.block_timestamp != block_timestamp
-            || account_farm.rewards.len() != asset_farm.rewards.len()
-        {
+        if account_farm.block_timestamp != block_timestamp {
             account_farm.block_timestamp = block_timestamp;
+            let mut old_rewards = std::mem::take(&mut account_farm.rewards);
             for (
-                i,
+                token_id,
                 AssetFarmReward {
-                    token_id,
-                    reward_per_share,
-                    ..
+                    reward_per_share, ..
                 },
-            ) in asset_farm.rewards.iter().enumerate()
+            ) in &asset_farm.rewards
             {
-                if let Some(reward) = account_farm.rewards.get_mut(i) {
-                    let diff = reward_per_share.clone() - reward.last_reward_per_share.clone();
-                    reward.last_reward_per_share = reward_per_share.clone();
-                    let amount = diff.round_mul_u128(reward.boosted_shares);
+                let boosted_shares = if let Some(AccountFarmReward {
+                    boosted_shares,
+                    last_reward_per_share,
+                }) = old_rewards.remove(token_id)
+                {
+                    let diff = reward_per_share.clone() - last_reward_per_share;
+                    let amount = diff.round_mul_u128(boosted_shares);
                     if amount > 0 {
                         new_rewards.push((token_id.clone(), amount));
                     }
+                    boosted_shares
                 } else {
-                    account_farm.rewards.push(AccountFarmReward {
-                        boosted_shares: 0,
+                    0
+                };
+                account_farm.rewards.insert(
+                    token_id.clone(),
+                    AccountFarmReward {
+                        boosted_shares,
                         last_reward_per_share: reward_per_share.clone(),
-                    });
+                    },
+                );
+            }
+            for (
+                token_id,
+                AccountFarmReward {
+                    boosted_shares,
+                    last_reward_per_share,
+                },
+            ) in old_rewards
+            {
+                let AssetFarmReward {
+                    reward_per_share, ..
+                } = asset_farm
+                    .internal_get_inactive_asset_farm_reward(&token_id)
+                    .unwrap();
+                let diff = reward_per_share - last_reward_per_share;
+                let amount = diff.round_mul_u128(boosted_shares);
+                inactive_rewards.push((token_id.clone(), boosted_shares));
+                if amount > 0 {
+                    new_rewards.push((token_id, amount));
                 }
             }
         }
-        (account_farm, new_rewards)
+        (account_farm, new_rewards, inactive_rewards)
     }
 
     pub fn internal_account_apply_affected_farms(
@@ -118,14 +148,14 @@ impl Contract {
         while i < account.affected_farms.len() {
             let farm_id = account.affected_farms[i].clone();
             if let Some(asset_farm) = self.internal_get_asset_farm(&farm_id) {
-                let (account_farm, new_rewards) =
+                let (account_farm, new_rewards, inactive_rewards) =
                     self.internal_account_farm_claim(account, &farm_id, &asset_farm);
                 for (token_id, amount) in new_rewards {
                     let new_farm_id = FarmId::Supplied(token_id.clone());
                     account.add_affected_farm(new_farm_id);
                     *all_rewards.entry(token_id).or_default() += amount;
                 }
-                farms.push((farm_id, account_farm, asset_farm));
+                farms.push((farm_id, account_farm, asset_farm, inactive_rewards));
             }
             i += 1;
         }
@@ -138,16 +168,13 @@ impl Contract {
             .shares_to_amount(account.get_supplied_shares(&config.booster_token_id), false);
         let booster_base = 10u128.pow(config.booster_decimals as u32);
 
-        for (farm_id, mut account_farm, mut asset_farm) in farms {
+        for (farm_id, mut account_farm, mut asset_farm, inactive_rewards) in farms {
             let shares = match &farm_id {
                 FarmId::Supplied(token_id) => account.get_supplied_shares(token_id).0,
                 FarmId::Borrowed(token_id) => account.get_borrowed_shares(token_id).0,
             };
-            for (account_farm_reward, asset_farm_reward) in account_farm
-                .rewards
-                .iter_mut()
-                .zip(asset_farm.rewards.iter_mut())
-            {
+            for (token_id, asset_farm_reward) in asset_farm.rewards.iter_mut() {
+                let account_farm_reward = account_farm.rewards.get_mut(token_id).unwrap();
                 asset_farm_reward.boosted_shares -= account_farm_reward.boosted_shares;
                 if shares > 0 {
                     let extra_shares = if booster_balance > booster_base {
@@ -162,6 +189,13 @@ impl Contract {
                     account_farm_reward.boosted_shares = shares + extra_shares;
                     asset_farm_reward.boosted_shares += account_farm_reward.boosted_shares;
                 }
+            }
+            for (token_id, boosted_shares) in inactive_rewards {
+                let mut asset_farm_reward = asset_farm
+                    .internal_get_inactive_asset_farm_reward(&token_id)
+                    .unwrap();
+                asset_farm_reward.boosted_shares -= boosted_shares;
+                asset_farm.internal_set_inactive_asset_farm_reward(&token_id, asset_farm_reward);
             }
             if shares > 0 {
                 account.farms.insert(&farm_id, &account_farm.into());
