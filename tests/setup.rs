@@ -1,15 +1,18 @@
-use common::ONE_YOCTO;
+use common::{AssetOptionalPrice, Price, PriceData, ONE_YOCTO};
 use near_contract_standards::fungible_token::metadata::{FungibleTokenMetadata, FT_METADATA_SPEC};
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
-use near_sdk::{env, Balance, Gas, Timestamp};
+use near_sdk::{env, serde_json, Balance, Gas, Timestamp};
 use near_sdk_sim::runtime::GenesisConfig;
 use near_sdk_sim::{
     deploy, init_simulator, to_yocto, ContractAccount, ExecutionResult, UserAccount,
 };
 use std::convert::TryInto;
 
-use contract::{AssetConfig, Config, ContractContract as BurrowlandContract};
+pub use contract::{
+    AccountDetailedView, Action, AssetAmount, AssetConfig, AssetDetailedView, Config,
+    ContractContract as BurrowlandContract, PriceReceiverMsg, TokenReceiverMsg,
+};
 use test_oracle::ContractContract as OracleContract;
 
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
@@ -59,19 +62,29 @@ pub struct Users {
     pub eve: UserAccount,
 }
 
-pub fn storage_deposit(user: &UserAccount, token_account_id: &str, account_id: &str) {
+pub fn storage_deposit(
+    user: &UserAccount,
+    contract_id: &str,
+    account_id: &str,
+    attached_deposit: Balance,
+) {
     user.call(
-        token_account_id.to_string(),
+        contract_id.to_string(),
         "storage_deposit",
-        &json!({
-            "account_id": account_id.to_string()
-        })
-        .to_string()
-        .into_bytes(),
+        &json!({ "account_id": account_id }).to_string().into_bytes(),
         DEFAULT_GAS,
-        125 * env::STORAGE_PRICE_PER_BYTE, // attached deposit
+        attached_deposit,
     )
     .assert_success();
+}
+
+pub fn ft_storage_deposit(user: &UserAccount, token_account_id: &str, account_id: &str) {
+    storage_deposit(
+        user,
+        token_account_id,
+        account_id,
+        125 * env::STORAGE_PRICE_PER_BYTE,
+    );
 }
 
 pub fn to_nano(timestamp: u32) -> Timestamp {
@@ -134,7 +147,7 @@ impl Env {
             DEFAULT_GAS,
         );
 
-        storage_deposit(&owner, BOOSTER_TOKEN_ID, BURROWLAND_ID);
+        ft_storage_deposit(&owner, BOOSTER_TOKEN_ID, BURROWLAND_ID);
 
         Self {
             root,
@@ -284,38 +297,18 @@ impl Env {
         self.contract_ft_transfer_call(
             &tokens.wnear,
             &self.owner,
-            10000 * 10u128.pow(24),
-            DEPOSIT_TO_RESERVE.to_string(),
+            d(10000, 24),
+            DEPOSIT_TO_RESERVE,
         );
-        self.contract_ft_transfer_call(
-            &tokens.neth,
-            &self.owner,
-            10000 * 10u128.pow(18),
-            DEPOSIT_TO_RESERVE.to_string(),
-        );
-        self.contract_ft_transfer_call(
-            &tokens.ndai,
-            &self.owner,
-            10000 * 10u128.pow(18),
-            DEPOSIT_TO_RESERVE.to_string(),
-        );
-        self.contract_ft_transfer_call(
-            &tokens.nusdt,
-            &self.owner,
-            10000 * 10u128.pow(6),
-            DEPOSIT_TO_RESERVE.to_string(),
-        );
-        self.contract_ft_transfer_call(
-            &tokens.nusdc,
-            &self.owner,
-            10000 * 10u128.pow(6),
-            DEPOSIT_TO_RESERVE.to_string(),
-        );
+        self.contract_ft_transfer_call(&tokens.neth, &self.owner, d(10000, 18), DEPOSIT_TO_RESERVE);
+        self.contract_ft_transfer_call(&tokens.ndai, &self.owner, d(10000, 18), DEPOSIT_TO_RESERVE);
+        self.contract_ft_transfer_call(&tokens.nusdt, &self.owner, d(10000, 6), DEPOSIT_TO_RESERVE);
+        self.contract_ft_transfer_call(&tokens.nusdc, &self.owner, d(10000, 6), DEPOSIT_TO_RESERVE);
         self.contract_ft_transfer_call(
             &self.booster_token,
             &self.owner,
-            10000 * 10u128.pow(18),
-            DEPOSIT_TO_RESERVE.to_string(),
+            d(10000, 18),
+            DEPOSIT_TO_RESERVE,
         );
     }
 
@@ -324,7 +317,7 @@ impl Env {
         token: &UserAccount,
         user: &UserAccount,
         amount: Balance,
-        msg: String,
+        msg: &str,
     ) -> ExecutionResult {
         user.call(
             token.account_id.clone(),
@@ -359,19 +352,125 @@ impl Env {
     }
 
     pub fn mint_tokens(&self, tokens: &Tokens, user: &UserAccount) {
-        storage_deposit(user, &tokens.wnear.account_id(), &user.account_id());
-        storage_deposit(user, &tokens.neth.account_id(), &user.account_id());
-        storage_deposit(user, &tokens.ndai.account_id(), &user.account_id());
-        storage_deposit(user, &tokens.nusdt.account_id(), &user.account_id());
-        storage_deposit(user, &tokens.nusdc.account_id(), &user.account_id());
-        storage_deposit(user, &self.booster_token.account_id(), &user.account_id());
+        ft_storage_deposit(user, &tokens.wnear.account_id(), &user.account_id());
+        ft_storage_deposit(user, &tokens.neth.account_id(), &user.account_id());
+        ft_storage_deposit(user, &tokens.ndai.account_id(), &user.account_id());
+        ft_storage_deposit(user, &tokens.nusdt.account_id(), &user.account_id());
+        ft_storage_deposit(user, &tokens.nusdc.account_id(), &user.account_id());
+        ft_storage_deposit(user, &self.booster_token.account_id(), &user.account_id());
 
-        self.mint_ft(&tokens.wnear, user, 10000 * 10u128.pow(24));
-        self.mint_ft(&tokens.neth, user, 10000 * 10u128.pow(18));
-        self.mint_ft(&tokens.ndai, user, 10000 * 10u128.pow(18));
-        self.mint_ft(&tokens.nusdt, user, 10000 * 10u128.pow(6));
-        self.mint_ft(&tokens.nusdc, user, 10000 * 10u128.pow(6));
-        self.mint_ft(&self.booster_token, user, 10000 * 10u128.pow(18));
+        let amount = 1000000;
+        self.mint_ft(&tokens.wnear, user, d(amount, 24));
+        self.mint_ft(&tokens.neth, user, d(amount, 18));
+        self.mint_ft(&tokens.ndai, user, d(amount, 18));
+        self.mint_ft(&tokens.nusdt, user, d(amount, 6));
+        self.mint_ft(&tokens.nusdc, user, d(amount, 6));
+        self.mint_ft(&self.booster_token, user, d(amount, 18));
+    }
+
+    pub fn get_asset(&self, token: &UserAccount) -> AssetDetailedView {
+        let asset: Option<AssetDetailedView> = self
+            .near
+            .view_method_call(self.contract.contract.get_asset(token.valid_account_id()))
+            .unwrap_json();
+        asset.unwrap()
+    }
+
+    pub fn get_account(&self, user: &UserAccount) -> AccountDetailedView {
+        let asset: Option<AccountDetailedView> = self
+            .near
+            .view_method_call(self.contract.contract.get_account(user.valid_account_id()))
+            .unwrap_json();
+        asset.unwrap()
+    }
+
+    pub fn supply_to_collateral(
+        &self,
+        user: &UserAccount,
+        token: &UserAccount,
+        amount: Balance,
+    ) -> ExecutionResult {
+        self.contract_ft_transfer_call(
+            &token,
+            &user,
+            amount,
+            &serde_json::to_string(&TokenReceiverMsg::Execute {
+                actions: vec![Action::IncreaseCollateral(AssetAmount {
+                    token_id: token.account_id(),
+                    amount: None,
+                    max_amount: None,
+                })],
+            })
+            .unwrap(),
+        )
+    }
+
+    pub fn oracle_call(
+        &self,
+        user: &UserAccount,
+        price_data: PriceData,
+        msg: PriceReceiverMsg,
+    ) -> ExecutionResult {
+        user.function_call(
+            self.oracle.contract.oracle_call(
+                self.contract.user_account.valid_account_id(),
+                price_data,
+                serde_json::to_string(&msg).unwrap(),
+            ),
+            MAX_GAS,
+            ONE_YOCTO,
+        )
+    }
+
+    pub fn borrow(
+        &self,
+        user: &UserAccount,
+        token: &UserAccount,
+        price_data: PriceData,
+        amount: Balance,
+    ) -> ExecutionResult {
+        self.oracle_call(
+            &user,
+            price_data,
+            PriceReceiverMsg::Execute {
+                actions: vec![Action::Borrow(AssetAmount {
+                    token_id: token.account_id(),
+                    amount: Some(amount.into()),
+                    max_amount: None,
+                })],
+            },
+        )
+    }
+
+    pub fn borrow_and_withdraw(
+        &self,
+        user: &UserAccount,
+        token: &UserAccount,
+        price_data: PriceData,
+        amount: Balance,
+    ) -> ExecutionResult {
+        self.oracle_call(
+            &user,
+            price_data,
+            PriceReceiverMsg::Execute {
+                actions: vec![
+                    Action::Borrow(AssetAmount {
+                        token_id: token.account_id(),
+                        amount: Some(amount.into()),
+                        max_amount: None,
+                    }),
+                    Action::Withdraw(AssetAmount {
+                        token_id: token.account_id(),
+                        amount: Some(amount.into()),
+                        max_amount: None,
+                    }),
+                ],
+            },
+        )
+    }
+
+    pub fn skip_time(&self, seconds: u32) {
+        self.near.borrow_runtime_mut().cur_block.block_timestamp += to_nano(seconds);
     }
 }
 
@@ -399,7 +498,7 @@ pub fn init_token(e: &Env, token_account_id: &str, decimals: u8) -> UserAccount 
         DEFAULT_GAS,
     );
 
-    storage_deposit(&e.owner, token_account_id, BURROWLAND_ID);
+    ft_storage_deposit(&e.owner, token_account_id, BURROWLAND_ID);
     token
 }
 
@@ -434,5 +533,62 @@ impl Users {
                 .near
                 .create_user("eve.near".to_string(), to_yocto("10000")),
         }
+    }
+}
+
+pub fn d(value: Balance, decimals: u8) -> Balance {
+    value * 10u128.pow(decimals as _)
+}
+
+pub fn price_data(
+    tokens: &Tokens,
+    wnear_mul: Option<Balance>,
+    neth_mul: Option<Balance>,
+) -> PriceData {
+    let mut prices = vec![
+        AssetOptionalPrice {
+            asset_id: tokens.ndai.account_id(),
+            price: Some(Price {
+                multiplier: 10000,
+                decimals: 22,
+            }),
+        },
+        AssetOptionalPrice {
+            asset_id: tokens.nusdc.account_id(),
+            price: Some(Price {
+                multiplier: 10000,
+                decimals: 10,
+            }),
+        },
+        AssetOptionalPrice {
+            asset_id: tokens.nusdt.account_id(),
+            price: Some(Price {
+                multiplier: 10000,
+                decimals: 10,
+            }),
+        },
+    ];
+    if let Some(wnear_mul) = wnear_mul {
+        prices.push(AssetOptionalPrice {
+            asset_id: tokens.wnear.account_id(),
+            price: Some(Price {
+                multiplier: wnear_mul,
+                decimals: 28,
+            }),
+        })
+    }
+    if let Some(neth_mul) = neth_mul {
+        prices.push(AssetOptionalPrice {
+            asset_id: tokens.neth.account_id(),
+            price: Some(Price {
+                multiplier: neth_mul,
+                decimals: 22,
+            }),
+        })
+    }
+    PriceData {
+        timestamp: 0,
+        recency_duration_sec: 90,
+        prices,
     }
 }

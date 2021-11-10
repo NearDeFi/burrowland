@@ -23,6 +23,7 @@ const MAX_RATIO: u32 = 10000;
 /// }
 /// ```
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[serde(crate = "near_sdk::serde")]
 pub struct AssetConfig {
     /// The ratio of interest that is reserved by the protocol (multiplied by 10000).
@@ -120,7 +121,7 @@ mod tests {
         let rate = config.get_rate(81 * ONE_NEAR, 100 * ONE_NEAR);
         println!("Rate: {}", rate);
 
-        let apr = rate.pow(NANOS_PER_YEAR) - BigDecimal::one();
+        let apr = rate.pow(MS_PER_YEAR) - BigDecimal::one();
         println!("APR: {}", apr)
     }
 }

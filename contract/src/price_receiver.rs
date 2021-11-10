@@ -3,7 +3,7 @@ use near_sdk::serde_json;
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
-enum PriceReceiverMsg {
+pub enum PriceReceiverMsg {
     Execute { actions: Vec<Action> },
 }
 

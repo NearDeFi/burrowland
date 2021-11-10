@@ -1,6 +1,7 @@
 use crate::*;
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Hash, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[serde(crate = "near_sdk::serde")]
 pub enum FarmId {
     Supplied(TokenId),

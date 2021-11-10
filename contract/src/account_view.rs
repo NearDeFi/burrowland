@@ -1,6 +1,7 @@
 use crate::*;
 
 #[derive(Serialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, Deserialize))]
 #[serde(crate = "near_sdk::serde")]
 pub struct AssetView {
     pub token_id: TokenId,
@@ -13,6 +14,7 @@ pub struct AssetView {
 }
 
 #[derive(Serialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, Deserialize))]
 #[serde(crate = "near_sdk::serde")]
 pub struct AccountDetailedView {
     pub account_id: AccountId,
@@ -27,6 +29,7 @@ pub struct AccountDetailedView {
 }
 
 #[derive(Serialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, Deserialize))]
 #[serde(crate = "near_sdk::serde")]
 pub struct AccountFarmView {
     pub farm_id: FarmId,
@@ -34,6 +37,7 @@ pub struct AccountFarmView {
 }
 
 #[derive(Serialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, Deserialize))]
 #[serde(crate = "near_sdk::serde")]
 pub struct AccountFarmRewardView {
     pub reward_token_id: TokenId,

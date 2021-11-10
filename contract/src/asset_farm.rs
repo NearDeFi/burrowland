@@ -51,6 +51,7 @@ impl From<AssetFarmReward> for VAssetFarmReward {
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Serialize, Default)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, Deserialize))]
 #[serde(crate = "near_sdk::serde")]
 pub struct AssetFarmReward {
     /// The amount of reward distributed per day.

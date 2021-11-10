@@ -1,6 +1,6 @@
 use crate::*;
 
-pub(crate) const NANOS_PER_YEAR: u64 = 31536000000;
+pub const MS_PER_YEAR: u64 = 31536000000;
 
 static ASSETS: Lazy<Mutex<HashMap<TokenId, Option<Asset>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
@@ -60,7 +60,7 @@ impl Asset {
 
     pub fn get_borrow_apr(&self) -> BigDecimal {
         let rate = self.get_rate();
-        rate.pow(NANOS_PER_YEAR) - BigDecimal::one()
+        rate.pow(MS_PER_YEAR) - BigDecimal::one()
     }
 
     pub fn get_supply_apr(&self) -> BigDecimal {
