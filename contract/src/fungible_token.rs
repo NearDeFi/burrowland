@@ -7,7 +7,8 @@ use near_sdk::{is_promise_success, serde_json, PromiseOrValue};
 const GAS_FOR_FT_TRANSFER: Gas = 10 * TGAS;
 const GAS_FOR_AFTER_FT_TRANSFER: Gas = 20 * TGAS;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, Serialize))]
 #[serde(crate = "near_sdk::serde")]
 pub enum TokenReceiverMsg {
     Execute { actions: Vec<Action> },

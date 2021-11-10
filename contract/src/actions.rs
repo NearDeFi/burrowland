@@ -2,7 +2,8 @@ use crate::*;
 
 const MAX_NUM_ASSETS: usize = 8;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, Serialize))]
 #[serde(crate = "near_sdk::serde")]
 pub struct AssetAmount {
     pub token_id: TokenId,
@@ -14,7 +15,8 @@ pub struct AssetAmount {
     pub max_amount: Option<WrappedBalance>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, Serialize))]
 #[serde(crate = "near_sdk::serde")]
 pub enum Action {
     Withdraw(AssetAmount),

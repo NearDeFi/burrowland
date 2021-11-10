@@ -1,7 +1,8 @@
 use crate::*;
 use near_sdk::serde_json;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, Serialize))]
 #[serde(crate = "near_sdk::serde")]
 pub enum PriceReceiverMsg {
     Execute { actions: Vec<Action> },

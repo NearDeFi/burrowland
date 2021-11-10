@@ -5,7 +5,8 @@ pub const MS_PER_YEAR: u64 = 31536000000;
 static ASSETS: Lazy<Mutex<HashMap<TokenId, Option<Asset>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Clone)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, Deserialize))]
 #[serde(crate = "near_sdk::serde")]
 pub struct Asset {
     /// Total supplied including collateral, but excluding reserved.

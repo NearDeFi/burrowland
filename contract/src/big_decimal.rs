@@ -1,10 +1,11 @@
 use crate::*;
 use near_sdk::borsh::maybestd::io::Write;
 use near_sdk::json_types::U128;
-use near_sdk::serde::{Deserializer, Serializer};
+use near_sdk::serde::Serializer;
 use std::cmp::Ordering;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Display, Formatter};
 use std::ops::{Add, Div, Mul, Sub};
+#[cfg(not(target_arch = "wasm32"))]
 use std::str::FromStr;
 
 uint::construct_uint!(
@@ -44,14 +45,17 @@ impl Display for BigDecimal {
     }
 }
 
-impl Debug for BigDecimal {
+#[cfg(not(target_arch = "wasm32"))]
+impl std::fmt::Debug for BigDecimal {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 const PARSE_INT_ERROR: &'static str = "Parse int error";
 
+#[cfg(not(target_arch = "wasm32"))]
 impl FromStr for BigDecimal {
     type Err = String;
 
@@ -84,10 +88,13 @@ impl Serialize for BigDecimal {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl<'de> Deserialize<'de> for BigDecimal {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    fn deserialize<D>(
+        deserializer: D,
+    ) -> Result<Self, <D as near_sdk::serde::Deserializer<'de>>::Error>
     where
-        D: Deserializer<'de>,
+        D: near_sdk::serde::Deserializer<'de>,
     {
         let s: String = Deserialize::deserialize(deserializer)?;
         Ok(Self::from_str(&s).map_err(|err| near_sdk::serde::de::Error::custom(err))?)
@@ -193,6 +200,7 @@ impl BigDecimal {
         ((self.0 + U384::from(HALF_DIVISOR)) / U384::from(BIG_DIVISOR)).as_u128()
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn f64(&self) -> f64 {
         let base = (self.0 / U384::from(BIG_DIVISOR)).as_u128();
         let fract = (self.0 - U384::from(base)).as_u128() as f64;
