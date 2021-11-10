@@ -30,7 +30,7 @@ pub use crate::config::*;
 pub use crate::pool::*;
 pub use crate::prices::*;
 pub use crate::storage::*;
-pub use crate::utils::*;
+use crate::utils::*;
 
 use common::*;
 
