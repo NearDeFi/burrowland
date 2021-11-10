@@ -147,7 +147,7 @@ impl Contract {
         let mut farms = vec![];
         while i < account.affected_farms.len() {
             let farm_id = account.affected_farms[i].clone();
-            if let Some(asset_farm) = self.internal_get_asset_farm(&farm_id) {
+            if let Some(asset_farm) = self.internal_get_asset_farm(&farm_id, false) {
                 let (account_farm, new_rewards, inactive_rewards) =
                     self.internal_account_farm_claim(account, &farm_id, &asset_farm);
                 for (token_id, amount) in new_rewards {

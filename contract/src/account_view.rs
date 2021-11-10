@@ -50,7 +50,7 @@ impl Contract {
             .farms
             .keys()
             .map(|farm_id| {
-                let mut asset_farm = self.internal_unwrap_asset_farm(&farm_id);
+                let mut asset_farm = self.internal_unwrap_asset_farm(&farm_id, true);
                 let (account_farm, new_rewards, inactive_rewards) =
                     self.internal_account_farm_claim(&account, &farm_id, &asset_farm);
                 AccountFarmView {
