@@ -116,7 +116,7 @@ impl Contract {
         reward_asset.reserved -= reward_amount.0;
         self.internal_set_asset(&reward_token_id, reward_asset);
         let mut asset_farm = self
-            .internal_get_asset_farm(&farm_id)
+            .internal_get_asset_farm(&farm_id, false)
             .unwrap_or_else(|| AssetFarm {
                 block_timestamp: env::block_timestamp(),
                 rewards: HashMap::new(),
