@@ -164,9 +164,13 @@ impl Contract {
             self.internal_deposit(account, &token_id, reward);
         }
         let booster_balance = self
-            .internal_unwrap_asset(&config.booster_token_id)
-            .supplied
-            .shares_to_amount(account.get_supplied_shares(&config.booster_token_id), false);
+            .internal_get_asset(&config.booster_token_id)
+            .map(|booster| {
+                booster
+                    .supplied
+                    .shares_to_amount(account.get_supplied_shares(&config.booster_token_id), false)
+            })
+            .unwrap_or(0);
         let booster_base = 10u128.pow(config.booster_decimals as u32);
 
         for (farm_id, mut account_farm, mut asset_farm, inactive_rewards) in farms {

@@ -5,8 +5,8 @@ use near_contract_standards::storage_management::{
 use near_sdk::json_types::U128;
 use near_sdk::StorageUsage;
 
-/// 1000 bytes
-const MIN_STORAGE_BALANCE: Balance = 1000u128 * env::STORAGE_PRICE_PER_BYTE;
+/// 10000 bytes
+const MIN_STORAGE_BALANCE: Balance = 10000u128 * env::STORAGE_PRICE_PER_BYTE;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone)]
 #[borsh_init(init)]
