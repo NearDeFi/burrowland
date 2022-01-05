@@ -1,6 +1,6 @@
 use crate::*;
 
-const MAX_NUM_ASSETS: usize = 8;
+const MAX_NUM_ASSETS: usize = 10;
 
 #[derive(Deserialize)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug, Serialize))]
@@ -378,7 +378,9 @@ impl Contract {
         let discounted_collateral_taken = collateral_taken_sum * (BigDecimal::one() - max_discount);
         assert!(
             discounted_collateral_taken <= borrowed_repaid_sum,
-            "Not enough balances repaid"
+            "Not enough balances repaid: discounted collateral {} > borrowed repaid sum {}",
+            discounted_collateral_taken,
+            borrowed_repaid_sum
         );
 
         let new_max_discount = self.compute_max_discount(&liquidation_account, &prices);

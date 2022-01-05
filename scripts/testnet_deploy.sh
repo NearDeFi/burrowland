@@ -245,6 +245,12 @@ echo -e "$LG>>>>>>>>>>>>>>$TC * 20 wNEAR $NC"
 #  "msg": "\"DepositToReserve\""
 #}' --amount=$ONE_YOCTO --gas=$GAS
 
+near call $NETH_TOKEN_ID --accountId=$OWNER_ID ft_transfer_call '{
+  "receiver_id": "'$CONTRACT_ID'",
+  "amount": "1000000000000000000",
+  "msg": "\"DepositToReserve\""
+}' --amount=$ONE_YOCTO --gas=$GAS
+
 near call $DAI_TOKEN_ID --accountId=$OWNER_ID ft_transfer_call '{
   "receiver_id": "'$CONTRACT_ID'",
   "amount": "2000000000000000000000",
@@ -267,6 +273,42 @@ near call $WNEAR_TOKEN_ID --accountId=$OWNER_ID ft_transfer_call '{
   "receiver_id": "'$CONTRACT_ID'",
   "amount": "20000000000000000000000000",
   "msg": "\"DepositToReserve\""
+}' --amount=$ONE_YOCTO --gas=$GAS
+
+echo -e "$LG>>>>>>>>>>>>>>$TC Registering the owner: $LG<<<<<<<<<<<<<<$NC"
+
+near call $CONTRACT_ID --accountId=$OWNER_ID storage_deposit '' --amount=0.1
+
+echo -e "$LG>>>>>>>>>>>>>>$TC Adding regular deposits from the owner: $LG<<<<<<<<<<<<<<$NC"
+# echo -e "$LG>>>>>>>>>>>>>>$TC * 20000 BOOSTER $NC"
+# echo -e "$LG>>>>>>>>>>>>>>$TC * 2 wETH $NC"
+echo -e "$LG>>>>>>>>>>>>>>$TC * 100 DAI $NC"
+echo -e "$LG>>>>>>>>>>>>>>$TC * 100 USDT $NC"
+echo -e "$LG>>>>>>>>>>>>>>$TC * 100 USDC $NC"
+echo -e "$LG>>>>>>>>>>>>>>$TC * 1 wNEAR $NC"
+
+near call $DAI_TOKEN_ID --accountId=$OWNER_ID ft_transfer_call '{
+  "receiver_id": "'$CONTRACT_ID'",
+  "amount": "100000000000000000000",
+  "msg": ""
+}' --amount=$ONE_YOCTO --gas=$GAS
+
+near call $USDT_TOKEN_ID --accountId=$OWNER_ID ft_transfer_call '{
+  "receiver_id": "'$CONTRACT_ID'",
+  "amount": "100000000",
+  "msg": ""
+}' --amount=$ONE_YOCTO --gas=$GAS
+
+near call $USDC_TOKEN_ID --accountId=$OWNER_ID ft_transfer_call '{
+  "receiver_id": "'$CONTRACT_ID'",
+  "amount": "2000000000",
+  "msg": ""
+}' --amount=$ONE_YOCTO --gas=$GAS
+
+near call $WNEAR_TOKEN_ID --accountId=$OWNER_ID ft_transfer_call '{
+  "receiver_id": "'$CONTRACT_ID'",
+  "amount": "1000000000000000000000000",
+  "msg": ""
 }' --amount=$ONE_YOCTO --gas=$GAS
 
 echo -e "$LG>>>>>>>>>>>>>>$TC Dropping info to continue working from NEAR CLI: $LG<<<<<<<<<<<<<<$NC"
