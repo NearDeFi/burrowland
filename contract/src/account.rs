@@ -239,4 +239,9 @@ impl Contract {
             .map(|index| values.get(index).unwrap().into())
             .collect()
     }
+
+    /// Returns the number of accounts
+    pub fn get_num_accounts(&self) -> u32 {
+        self.accounts.len() as _
+    }
 }
