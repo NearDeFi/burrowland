@@ -202,11 +202,13 @@ impl Contract {
                 asset_farm_reward.boosted_shares -= boosted_shares;
                 asset_farm.internal_set_inactive_asset_farm_reward(&token_id, asset_farm_reward);
             }
+            account.storage_tracker.start();
             if shares > 0 {
                 account.farms.insert(&farm_id, &account_farm.into());
             } else {
                 account.farms.remove(&farm_id);
             }
+            account.storage_tracker.stop();
             self.internal_set_asset_farm(&farm_id, asset_farm);
         }
     }
@@ -217,10 +219,9 @@ impl Contract {
     /// Claims all unclaimed farm rewards.
     pub fn account_farm_claim_all(&mut self) {
         let account_id = env::predecessor_account_id();
-        let (mut account, storage) =
-            self.internal_unwrap_account_with_storage(&env::predecessor_account_id());
+        let mut account = self.internal_unwrap_account(&env::predecessor_account_id());
         account.add_all_affected_farms();
         self.internal_account_apply_affected_farms(&mut account, false);
-        self.internal_set_account(&account_id, account, storage);
+        self.internal_set_account(&account_id, account);
     }
 }

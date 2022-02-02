@@ -36,7 +36,6 @@ impl Contract {
         &mut self,
         account_id: &AccountId,
         account: &mut Account,
-        storage: &mut Storage,
         actions: Vec<Action>,
         prices: Prices,
     ) {
@@ -122,7 +121,6 @@ impl Contract {
                     self.internal_liquidate(
                         account_id,
                         account,
-                        storage,
                         &prices,
                         liquidation_account_id.as_ref(),
                         in_assets,
@@ -320,14 +318,12 @@ impl Contract {
         &mut self,
         account_id: &AccountId,
         account: &mut Account,
-        storage: &mut Storage,
         prices: &Prices,
         liquidation_account_id: &AccountId,
         in_assets: Vec<AssetAmount>,
         out_assets: Vec<AssetAmount>,
     ) {
-        let (mut liquidation_account, mut liquidation_storage) =
-            self.internal_unwrap_account_with_storage(liquidation_account_id);
+        let mut liquidation_account = self.internal_unwrap_account(liquidation_account_id);
 
         let max_discount = self.compute_max_discount(&liquidation_account, &prices);
         assert!(
@@ -340,7 +336,6 @@ impl Contract {
 
         for asset_amount in in_assets {
             let asset = self.internal_unwrap_asset(&asset_amount.token_id);
-            account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
             liquidation_account.add_affected_farm(FarmId::Borrowed(asset_amount.token_id.clone()));
             let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_id);
             let amount =
@@ -357,7 +352,6 @@ impl Contract {
 
         for asset_amount in out_assets {
             let asset = self.internal_unwrap_asset(&asset_amount.token_id);
-            account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
             liquidation_account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
             let mut account_asset = account.internal_get_asset_or_default(&asset_amount.token_id);
             let amount = self.internal_decrease_collateral(
@@ -390,36 +384,7 @@ impl Contract {
         );
 
         self.internal_account_apply_affected_farms(&mut liquidation_account, true);
-
-        // We have to adjust the initial_storage_usage for the acting account to not double count
-        // the bytes from the liquidation account. As well as potentially cover the extra bytes
-        // required by the liquidation account that might be added due to farms.
-        let current_storage_usage = env::storage_usage();
-        if current_storage_usage > liquidation_storage.initial_storage_usage {
-            let required_bytes = current_storage_usage - liquidation_storage.initial_storage_usage;
-            let available_bytes = liquidation_storage.available_bytes();
-            if available_bytes < required_bytes {
-                let extra_bytes = required_bytes - available_bytes;
-                log!(
-                    "Account {} has to cover extra storage of {} bytes for liquidation account {}",
-                    account_id,
-                    extra_bytes,
-                    liquidation_account_id,
-                );
-                liquidation_storage.initial_storage_usage += extra_bytes;
-                storage.initial_storage_usage += available_bytes;
-            } else {
-                storage.initial_storage_usage += required_bytes;
-            }
-        } else {
-            let released_bytes = liquidation_storage.initial_storage_usage - current_storage_usage;
-            storage.initial_storage_usage -= released_bytes;
-        }
-        self.internal_set_account(
-            liquidation_account_id,
-            liquidation_account,
-            liquidation_storage,
-        );
+        self.internal_set_account(liquidation_account_id, liquidation_account);
 
         log!(
             "Account {} liquidates account {}: takes {} for repaying {}",
@@ -512,14 +477,8 @@ impl Contract {
     pub fn execute(&mut self, actions: Vec<Action>) {
         assert_one_yocto();
         let account_id = env::predecessor_account_id();
-        let (mut account, mut storage) = self.internal_unwrap_account_with_storage(&account_id);
-        self.internal_execute(
-            &account_id,
-            &mut account,
-            &mut storage,
-            actions,
-            Prices::new(),
-        );
-        self.internal_set_account(&account_id, account, storage);
+        let mut account = self.internal_unwrap_account(&account_id);
+        self.internal_execute(&account_id, &mut account, actions, Prices::new());
+        self.internal_set_account(&account_id, account);
     }
 }

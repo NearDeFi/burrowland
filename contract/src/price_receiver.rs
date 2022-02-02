@@ -20,15 +20,8 @@ impl OraclePriceReceiver for Contract {
             PriceReceiverMsg::Execute { actions } => actions,
         };
 
-        let (mut account, mut storage) =
-            self.internal_unwrap_account_with_storage(sender_id.as_ref());
-        self.internal_execute(
-            sender_id.as_ref(),
-            &mut account,
-            &mut storage,
-            actions,
-            data.into(),
-        );
-        self.internal_set_account(sender_id.as_ref(), account, storage);
+        let mut account = self.internal_unwrap_account(sender_id.as_ref());
+        self.internal_execute(sender_id.as_ref(), &mut account, actions, data.into());
+        self.internal_set_account(sender_id.as_ref(), account);
     }
 }

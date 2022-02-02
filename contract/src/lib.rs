@@ -14,6 +14,7 @@ mod pool;
 mod price_receiver;
 mod prices;
 mod storage;
+mod storage_tracker;
 mod utils;
 
 pub use crate::account::*;
@@ -32,6 +33,7 @@ pub use crate::pool::*;
 pub use crate::price_receiver::*;
 pub use crate::prices::*;
 pub use crate::storage::*;
+use crate::storage_tracker::*;
 use crate::utils::*;
 
 use common::*;
