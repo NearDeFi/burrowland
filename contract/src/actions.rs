@@ -9,10 +9,10 @@ pub struct AssetAmount {
     pub token_id: TokenId,
     /// The amount of tokens intended to be used for the action.
     /// If `None`, then the maximum amount will be tried.
-    pub amount: Option<WrappedBalance>,
+    pub amount: Option<U128>,
     /// The maximum amount of tokens that can be used for the action.
     /// If `None`, then the maximum `available` amount will be used.
-    pub max_amount: Option<WrappedBalance>,
+    pub max_amount: Option<U128>,
 }
 
 #[derive(Deserialize)]
@@ -25,7 +25,7 @@ pub enum Action {
     Borrow(AssetAmount),
     Repay(AssetAmount),
     Liquidate {
-        account_id: ValidAccountId,
+        account_id: AccountId,
         in_assets: Vec<AssetAmount>,
         out_assets: Vec<AssetAmount>,
     },
@@ -113,8 +113,7 @@ impl Contract {
                     out_assets,
                 } => {
                     assert_ne!(
-                        account_id,
-                        liquidation_account_id.as_ref(),
+                        account_id, &liquidation_account_id,
                         "Can't liquidate yourself"
                     );
                     assert!(!in_assets.is_empty() && !out_assets.is_empty());
@@ -122,7 +121,7 @@ impl Contract {
                         account_id,
                         account,
                         &prices,
-                        liquidation_account_id.as_ref(),
+                        &liquidation_account_id,
                         in_assets,
                         out_assets,
                     );

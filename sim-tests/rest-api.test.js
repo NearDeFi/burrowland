@@ -344,8 +344,7 @@ describe("Decrease collateral", () => {
             },
             {
                 account_id: alice,
-                tokens: 1,
-                log_errors: true
+                tokens: 1
             })
         expect(decrease_collateral_wrong_asset.is_error).toBeTruthy();
 
@@ -379,4 +378,92 @@ describe("Decrease collateral", () => {
     });
 });
 
+
+describe("Liquidate", () => {
+    test('Liquidate', async () => {
+        const account_1 = await burrow.view("get_account",
+            {account_id: alice}, {});
+
+        console.log(account_1);
+
+        const increaseCollateral = await burrow.call("execute",
+            {
+                actions: [{
+                    IncreaseCollateral: {token_id: dai_contract_id}
+                }]
+            },
+            {
+                account_id: alice,
+                tokens: 1,
+                log_errors: true
+            })
+        expect(increaseCollateral.is_error).toBeFalsy();
+
+        const borrow_amount_1 = 1;
+        const execute = await oracle.call("oracle_call",
+            {
+                receiver_id: contract_id,
+                asset_ids: [
+                    'usdt.fakes.testnet',
+                    'dai.fakes.testnet'
+                ],
+                msg: JSON.stringify({
+                    Execute: {
+                        actions:
+                            [{
+                                Borrow: {
+                                    token_id: dai_contract_id,
+                                    amount: borrow_amount_1.toString() + "000000000000000000"
+                                }
+                            }]
+                    }
+                })
+            },
+            {
+                account_id: alice,
+                tokens: 1
+            })
+        expect(execute.is_error).toBeFalsy();
+
+        const liquidate = await burrow.call("execute",
+            {
+                actions: [{
+                    Liquidate: {
+                        token_id: 'usdt.fakes.testnet',
+                        in_assets: {
+                            token_id: 'dai.fakes.testnet',
+                            max_amount: borrow_amount_1.toString() + "000000000000000000"
+                        }
+                    }
+                }]
+            },
+            {
+                account_id: bob,
+                tokens: 1,
+                log_errors: true
+            })
+        expect(liquidate.is_error).toBeFalsy();
+
+        const account_2 = await burrow.view("get_account",
+            {account_id: alice}, {});
+
+        expect(account_2.borrowed.length).toBe(1);
+        expect(account_2.borrowed[0].token_id).toBe('dai.fakes.testnet');
+        // check borrowed funds
+        expect(utils.ConvertFromFTe18(account_2.borrowed[0].balance)
+            - utils.ConvertFromFTe18(account_1?.borrowed[0]?.balance))
+            .toBeCloseTo(borrow_amount_1);
+        expect(utils.ConvertFromFTe18(account_2.borrowed[0].shares)
+            - utils.ConvertFromFTe18(account_1?.borrowed[0]?.shares))
+            .toBe(borrow_amount_1);
+
+        // check supplied funds
+        expect(utils.ConvertFromFTe18(account_2.supplied[0].balance)
+            - utils.ConvertFromFTe18(account_1?.supplied[0]?.balance))
+            .toBeCloseTo(borrow_amount_1);
+        expect(utils.ConvertFromFTe18(account_2.supplied[0].shares)
+            - utils.ConvertFromFTe18(account_1?.supplied[0]?.shares))
+            .toBe(borrow_amount_1);
+    });
+});
 

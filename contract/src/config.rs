@@ -5,10 +5,10 @@ use crate::*;
 #[serde(crate = "near_sdk::serde")]
 pub struct Config {
     /// The account ID of the oracle contract
-    pub oracle_account_id: ValidAccountId,
+    pub oracle_account_id: AccountId,
 
     /// The account ID of the contract owner that allows to modify config, assets and use reserves.
-    pub owner_id: ValidAccountId,
+    pub owner_id: AccountId,
 
     /// The account ID of the booster token contract.
     pub booster_token_id: TokenId,
@@ -29,7 +29,7 @@ impl Contract {
     pub fn assert_owner(&self) {
         assert_eq!(
             &env::predecessor_account_id(),
-            self.internal_config().owner_id.as_ref(),
+            &self.internal_config().owner_id,
             "Not an owner"
         );
     }
@@ -58,15 +58,12 @@ impl Contract {
     /// - Requires one yoctoNEAR.
     /// - Requires to be called by the contract owner.
     #[payable]
-    pub fn add_asset(&mut self, token_id: ValidAccountId, asset_config: AssetConfig) {
+    pub fn add_asset(&mut self, token_id: AccountId, asset_config: AssetConfig) {
         assert_one_yocto();
         asset_config.assert_valid();
         self.assert_owner();
-        assert!(self.asset_ids.insert(token_id.as_ref()));
-        self.internal_set_asset(
-            token_id.as_ref(),
-            Asset::new(env::block_timestamp(), asset_config),
-        )
+        assert!(self.asset_ids.insert(&token_id));
+        self.internal_set_asset(&token_id, Asset::new(env::block_timestamp(), asset_config))
     }
 
     /// Updates the asset config for the asset with the a given token_id.
@@ -75,13 +72,13 @@ impl Contract {
     /// - Requires one yoctoNEAR.
     /// - Requires to be called by the contract owner.
     #[payable]
-    pub fn update_asset(&mut self, token_id: ValidAccountId, asset_config: AssetConfig) {
+    pub fn update_asset(&mut self, token_id: AccountId, asset_config: AssetConfig) {
         assert_one_yocto();
         asset_config.assert_valid();
         self.assert_owner();
-        let mut asset = self.internal_unwrap_asset(token_id.as_ref());
+        let mut asset = self.internal_unwrap_asset(&token_id);
         asset.config = asset_config;
-        self.internal_set_asset(token_id.as_ref(), asset);
+        self.internal_set_asset(&token_id, asset);
     }
 
     /// Adds an asset farm reward for the farm with a given farm_id. The reward is of token_id with
@@ -98,10 +95,10 @@ impl Contract {
     pub fn add_asset_farm_reward(
         &mut self,
         farm_id: FarmId,
-        reward_token_id: ValidAccountId,
-        new_reward_per_day: WrappedBalance,
-        new_booster_log_base: WrappedBalance,
-        reward_amount: WrappedBalance,
+        reward_token_id: AccountId,
+        new_reward_per_day: U128,
+        new_booster_log_base: U128,
+        reward_amount: U128,
     ) {
         assert_one_yocto();
         self.assert_owner();

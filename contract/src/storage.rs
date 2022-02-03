@@ -103,7 +103,7 @@ impl StorageManagement for Contract {
     #[payable]
     fn storage_deposit(
         &mut self,
-        account_id: Option<ValidAccountId>,
+        account_id: Option<AccountId>,
         registration_only: Option<bool>,
     ) -> StorageBalance {
         let amount: Balance = env::attached_deposit();
@@ -122,7 +122,7 @@ impl StorageManagement for Contract {
         } else {
             let min_balance = self.storage_balance_bounds().min.0;
             if amount < min_balance {
-                env::panic(b"The attached deposit is less than the mimimum storage balance");
+                env::panic_str("The attached deposit is less than the mimimum storage balance");
             }
 
             let mut storage = Storage::new();
@@ -155,7 +155,7 @@ impl StorageManagement for Contract {
         if let Some(storage_balance) = self.internal_storage_balance_of(&account_id) {
             let amount = amount.unwrap_or(storage_balance.available).0;
             if amount > storage_balance.available.0 {
-                env::panic(b"The amount is greater than the available storage balance");
+                env::panic_str("The amount is greater than the available storage balance");
             }
             if amount > 0 {
                 let mut storage = self.internal_unwrap_storage(&account_id);
@@ -165,14 +165,14 @@ impl StorageManagement for Contract {
             }
             self.internal_storage_balance_of(&account_id).unwrap()
         } else {
-            env::panic(format!("The account {} is not registered", &account_id).as_bytes());
+            env::panic_str(&format!("The account {} is not registered", &account_id));
         }
     }
 
     #[allow(unused_variables)]
     #[payable]
     fn storage_unregister(&mut self, force: Option<bool>) -> bool {
-        env::panic(b"The account can't be unregistered");
+        env::panic_str("The account can't be unregistered");
     }
 
     fn storage_balance_bounds(&self) -> StorageBalanceBounds {
@@ -182,7 +182,7 @@ impl StorageManagement for Contract {
         }
     }
 
-    fn storage_balance_of(&self, account_id: ValidAccountId) -> Option<StorageBalance> {
-        self.internal_storage_balance_of(account_id.as_ref())
+    fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance> {
+        self.internal_storage_balance_of(&account_id)
     }
 }

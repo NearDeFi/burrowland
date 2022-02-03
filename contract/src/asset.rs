@@ -158,19 +158,19 @@ impl Contract {
 #[near_bindgen]
 impl Contract {
     /// Returns an asset for a given token_id.
-    pub fn get_asset(&self, token_id: ValidAccountId) -> Option<AssetDetailedView> {
-        self.internal_get_asset(token_id.as_ref())
-            .map(|asset| self.asset_into_detailed_view(token_id.into(), asset))
+    pub fn get_asset(&self, token_id: AccountId) -> Option<AssetDetailedView> {
+        self.internal_get_asset(&token_id)
+            .map(|asset| self.asset_into_detailed_view(token_id, asset))
     }
 
     /// Returns an list of pairs (token_id, asset) for assets a given list of token_id.
     /// Only returns pais for existing assets.
-    pub fn get_assets(&self, token_ids: Vec<ValidAccountId>) -> Vec<AssetDetailedView> {
+    pub fn get_assets(&self, token_ids: Vec<AccountId>) -> Vec<AssetDetailedView> {
         token_ids
             .into_iter()
             .filter_map(|token_id| {
-                self.internal_get_asset(token_id.as_ref())
-                    .map(|asset| self.asset_into_detailed_view(token_id.into(), asset))
+                self.internal_get_asset(&token_id)
+                    .map(|asset| self.asset_into_detailed_view(token_id, asset))
             })
             .collect()
     }

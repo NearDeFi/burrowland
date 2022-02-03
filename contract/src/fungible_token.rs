@@ -4,8 +4,8 @@ use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
 use near_sdk::json_types::U128;
 use near_sdk::{is_promise_success, serde_json, PromiseOrValue};
 
-const GAS_FOR_FT_TRANSFER: Gas = 10 * TGAS;
-const GAS_FOR_AFTER_FT_TRANSFER: Gas = 20 * TGAS;
+const GAS_FOR_FT_TRANSFER: Gas = Gas(Gas::ONE_TERA.0 * 10);
+const GAS_FOR_AFTER_FT_TRANSFER: Gas = Gas(Gas::ONE_TERA.0 * 20);
 
 #[derive(Deserialize)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug, Serialize))]
@@ -23,7 +23,7 @@ impl FungibleTokenReceiver for Contract {
     /// - Requires to be called by the fungible token account.
     fn ft_on_transfer(
         &mut self,
-        sender_id: ValidAccountId,
+        sender_id: AccountId,
         amount: U128,
         msg: String,
     ) -> PromiseOrValue<U128> {
@@ -50,7 +50,7 @@ impl FungibleTokenReceiver for Contract {
                     self.internal_set_asset(&token_id, asset);
                     log!(
                         "Account {} deposits to reserve {} of {}",
-                        sender_id.as_ref(),
+                        sender_id,
                         amount,
                         token_id
                     );
@@ -59,12 +59,12 @@ impl FungibleTokenReceiver for Contract {
             }
         };
 
-        let mut account = self.internal_unwrap_account(sender_id.as_ref());
+        let mut account = self.internal_unwrap_account(&sender_id);
         account.add_affected_farm(FarmId::Supplied(token_id.clone()));
         self.internal_deposit(&mut account, &token_id, amount);
         log!("Account {} deposits {} of {}", sender_id, amount, token_id);
-        self.internal_execute(sender_id.as_ref(), &mut account, actions, Prices::new());
-        self.internal_set_account(sender_id.as_ref(), account);
+        self.internal_execute(&sender_id, &mut account, actions, Prices::new());
+        self.internal_set_account(&sender_id, account);
 
         PromiseOrValue::Value(U128(0))
     }
@@ -83,7 +83,7 @@ impl Contract {
             account_id.clone(),
             ft_amount.into(),
             None,
-            token_id,
+            token_id.clone(),
             ONE_YOCTO,
             GAS_FOR_FT_TRANSFER,
         )
@@ -91,7 +91,7 @@ impl Contract {
             account_id.clone(),
             token_id.clone(),
             amount.into(),
-            &env::current_account_id(),
+            env::current_account_id(),
             NO_DEPOSIT,
             GAS_FOR_AFTER_FT_TRANSFER,
         ))

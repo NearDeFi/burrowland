@@ -37,7 +37,7 @@ impl AccountAsset {
         if let Some(new_balance) = self.shares.0.checked_sub(shares.0) {
             self.shares.0 = new_balance;
         } else {
-            env::panic(b"Not enough asset balance");
+            env::panic_str("Not enough asset balance");
         }
     }
 

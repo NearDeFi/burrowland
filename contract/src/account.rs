@@ -86,7 +86,7 @@ impl Account {
                 self.collateral.swap_remove(index);
             }
         } else {
-            env::panic(b"Not enough collateral balance");
+            env::panic_str("Not enough collateral balance");
         }
     }
 
@@ -114,7 +114,7 @@ impl Account {
                 self.borrowed.swap_remove(index);
             }
         } else {
-            env::panic(b"Not enough borrowed balance");
+            env::panic_str("Not enough borrowed balance");
         }
     }
 
@@ -220,8 +220,8 @@ impl Contract {
     /// Returns detailed information about an account for a given account_id.
     /// The information includes all supplied assets, collateral and borrowed.
     /// Each asset includes the current balance and the number of shares.
-    pub fn get_account(&self, account_id: ValidAccountId) -> Option<AccountDetailedView> {
-        self.internal_get_account(account_id.as_ref())
+    pub fn get_account(&self, account_id: AccountId) -> Option<AccountDetailedView> {
+        self.internal_get_account(&account_id)
             .map(|account| self.account_into_detailed_view(account))
     }
 
