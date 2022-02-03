@@ -1,4 +1,5 @@
 use crate::*;
+use std::convert::TryFrom;
 
 pub struct Prices {
     prices: HashMap<TokenId, Price>,
@@ -23,7 +24,9 @@ impl From<PriceData> for Prices {
                 .prices
                 .into_iter()
                 .filter_map(|AssetOptionalPrice { asset_id, price }| {
-                    price.map(|price| (asset_id, price))
+                    let token_id =
+                        AccountId::try_from(asset_id).expect("Asset is not a valid token ID");
+                    price.map(|price| (token_id, price))
                 })
                 .collect(),
         }

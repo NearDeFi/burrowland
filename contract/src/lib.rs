@@ -38,7 +38,7 @@ use common::*;
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, LookupMap, UnorderedMap, UnorderedSet};
-use near_sdk::json_types::{ValidAccountId, WrappedBalance};
+use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
     assert_one_yocto, env, ext_contract, log, near_bindgen, AccountId, Balance, BorshStorageKey,
@@ -47,8 +47,6 @@ use near_sdk::{
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::Mutex;
-
-near_sdk::setup_alloc!();
 
 #[derive(BorshSerialize, BorshStorageKey)]
 enum StorageKey {

@@ -2,12 +2,11 @@ use common::{AssetOptionalPrice, Price, PriceData, ONE_YOCTO};
 use near_contract_standards::fungible_token::metadata::{FungibleTokenMetadata, FT_METADATA_SPEC};
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
-use near_sdk::{env, serde_json, Balance, Gas, Timestamp};
+use near_sdk::{env, serde_json, AccountId, Balance, Gas, Timestamp};
 use near_sdk_sim::runtime::GenesisConfig;
 use near_sdk_sim::{
     deploy, init_simulator, to_yocto, ContractAccount, ExecutionResult, UserAccount,
 };
-use std::convert::TryInto;
 
 pub use contract::{
     AccountDetailedView, Action, AssetAmount, AssetConfig, AssetDetailedView, Config,
@@ -28,9 +27,8 @@ pub const BURROWLAND_ID: &str = "burrowland.near";
 pub const BOOSTER_TOKEN_ID: &str = "token.burrowland.near";
 pub const OWNER_ID: &str = "owner.near";
 
-pub const T_GAS: Gas = 1_000_000_000_000;
-pub const DEFAULT_GAS: Gas = 15 * T_GAS;
-pub const MAX_GAS: Gas = 300 * T_GAS;
+pub const DEFAULT_GAS: Gas = Gas(Gas::ONE_TERA.0 * 15);
+pub const MAX_GAS: Gas = Gas(Gas::ONE_TERA.0 * 300);
 pub const BOOSTER_TOKEN_DECIMALS: u8 = 18;
 pub const BOOSTER_TOKEN_TOTAL_SUPPLY: Balance =
     1_000_000_000 * 10u128.pow(BOOSTER_TOKEN_DECIMALS as _);
@@ -64,21 +62,25 @@ pub struct Users {
 
 pub fn storage_deposit(
     user: &UserAccount,
-    contract_id: &str,
-    account_id: &str,
+    contract_id: &AccountId,
+    account_id: &AccountId,
     attached_deposit: Balance,
 ) {
     user.call(
-        contract_id.to_string(),
+        contract_id.clone(),
         "storage_deposit",
         &json!({ "account_id": account_id }).to_string().into_bytes(),
-        DEFAULT_GAS,
+        DEFAULT_GAS.0,
         attached_deposit,
     )
     .assert_success();
 }
 
-pub fn ft_storage_deposit(user: &UserAccount, token_account_id: &str, account_id: &str) {
+pub fn ft_storage_deposit(
+    user: &UserAccount,
+    token_account_id: &AccountId,
+    account_id: &AccountId,
+) {
     storage_deposit(
         user,
         token_account_id,
@@ -96,8 +98,14 @@ impl Env {
         let mut genesis_config = GenesisConfig::default();
         genesis_config.block_prod_time = 0;
         let root = init_simulator(Some(genesis_config));
-        let near = root.create_user(NEAR.to_string(), to_yocto("1000000"));
-        let owner = near.create_user(OWNER_ID.to_string(), to_yocto("10000"));
+        let near = root.create_user(
+            AccountId::new_unchecked(NEAR.to_string()),
+            to_yocto("1000000"),
+        );
+        let owner = near.create_user(
+            AccountId::new_unchecked(OWNER_ID.to_string()),
+            to_yocto("10000"),
+        );
 
         let oracle = deploy!(
             contract: OracleContract,
@@ -113,12 +121,12 @@ impl Env {
             bytes: &BURROWLAND_WASM_BYTES,
             signer_account: near,
             deposit: to_yocto("20"),
-            gas: DEFAULT_GAS,
+            gas: DEFAULT_GAS.0,
             init_method: new(
                 Config {
-                    oracle_account_id: ORACLE_ID.to_string().try_into().unwrap(),
-                    owner_id: owner.valid_account_id(),
-                    booster_token_id: BOOSTER_TOKEN_ID.to_string(),
+                    oracle_account_id: a(ORACLE_ID),
+                    owner_id: owner.account_id(),
+                    booster_token_id: a(BOOSTER_TOKEN_ID),
                     booster_decimals: BOOSTER_TOKEN_DECIMALS,
                 }
             )
@@ -126,10 +134,10 @@ impl Env {
 
         let booster_token = contract.user_account.deploy_and_init(
             &FUNGIBLE_TOKEN_WASM_BYTES,
-            BOOSTER_TOKEN_ID.to_string(),
+            a(BOOSTER_TOKEN_ID),
             "new",
             &json!({
-                "owner_id": owner.valid_account_id(),
+                "owner_id": owner.account_id(),
                 "total_supply": U128::from(BOOSTER_TOKEN_TOTAL_SUPPLY),
                 "metadata": FungibleTokenMetadata {
                     spec: FT_METADATA_SPEC.to_string(),
@@ -144,10 +152,10 @@ impl Env {
             .to_string()
             .into_bytes(),
             to_yocto("10"),
-            DEFAULT_GAS,
+            DEFAULT_GAS.0,
         );
 
-        ft_storage_deposit(&owner, BOOSTER_TOKEN_ID, BURROWLAND_ID);
+        ft_storage_deposit(&owner, &a(BOOSTER_TOKEN_ID), &a(BURROWLAND_ID));
 
         Self {
             root,
@@ -163,7 +171,7 @@ impl Env {
         self.owner
             .function_call(
                 self.contract.contract.add_asset(
-                    self.booster_token.valid_account_id(),
+                    self.booster_token.account_id(),
                     AssetConfig {
                         reserve_ratio: 2500,
                         target_utilization: 8000,
@@ -177,7 +185,7 @@ impl Env {
                         can_borrow: false,
                     },
                 ),
-                DEFAULT_GAS,
+                DEFAULT_GAS.0,
                 ONE_YOCTO,
             )
             .assert_success();
@@ -185,7 +193,7 @@ impl Env {
         self.owner
             .function_call(
                 self.contract.contract.add_asset(
-                    tokens.neth.valid_account_id(),
+                    tokens.neth.account_id(),
                     AssetConfig {
                         reserve_ratio: 2500,
                         target_utilization: 8000,
@@ -199,7 +207,7 @@ impl Env {
                         can_borrow: true,
                     },
                 ),
-                DEFAULT_GAS,
+                DEFAULT_GAS.0,
                 ONE_YOCTO,
             )
             .assert_success();
@@ -207,7 +215,7 @@ impl Env {
         self.owner
             .function_call(
                 self.contract.contract.add_asset(
-                    tokens.ndai.valid_account_id(),
+                    tokens.ndai.account_id(),
                     AssetConfig {
                         reserve_ratio: 2500,
                         target_utilization: 8000,
@@ -221,7 +229,7 @@ impl Env {
                         can_borrow: true,
                     },
                 ),
-                DEFAULT_GAS,
+                DEFAULT_GAS.0,
                 ONE_YOCTO,
             )
             .assert_success();
@@ -229,7 +237,7 @@ impl Env {
         self.owner
             .function_call(
                 self.contract.contract.add_asset(
-                    tokens.nusdt.valid_account_id(),
+                    tokens.nusdt.account_id(),
                     AssetConfig {
                         reserve_ratio: 2500,
                         target_utilization: 8000,
@@ -243,7 +251,7 @@ impl Env {
                         can_borrow: true,
                     },
                 ),
-                DEFAULT_GAS,
+                DEFAULT_GAS.0,
                 ONE_YOCTO,
             )
             .assert_success();
@@ -251,7 +259,7 @@ impl Env {
         self.owner
             .function_call(
                 self.contract.contract.add_asset(
-                    tokens.nusdc.valid_account_id(),
+                    tokens.nusdc.account_id(),
                     AssetConfig {
                         reserve_ratio: 2500,
                         target_utilization: 8000,
@@ -265,7 +273,7 @@ impl Env {
                         can_borrow: true,
                     },
                 ),
-                DEFAULT_GAS,
+                DEFAULT_GAS.0,
                 ONE_YOCTO,
             )
             .assert_success();
@@ -273,7 +281,7 @@ impl Env {
         self.owner
             .function_call(
                 self.contract.contract.add_asset(
-                    tokens.wnear.valid_account_id(),
+                    tokens.wnear.account_id(),
                     AssetConfig {
                         reserve_ratio: 2500,
                         target_utilization: 8000,
@@ -287,7 +295,7 @@ impl Env {
                         can_borrow: true,
                     },
                 ),
-                DEFAULT_GAS,
+                DEFAULT_GAS.0,
                 ONE_YOCTO,
             )
             .assert_success();
@@ -323,13 +331,13 @@ impl Env {
             token.account_id.clone(),
             "ft_transfer_call",
             &json!({
-                "receiver_id": self.contract.user_account.valid_account_id(),
+                "receiver_id": self.contract.user_account.account_id(),
                 "amount": U128::from(amount),
                 "msg": msg,
             })
             .to_string()
             .into_bytes(),
-            MAX_GAS,
+            MAX_GAS.0,
             1,
         )
     }
@@ -340,12 +348,12 @@ impl Env {
                 token.account_id.clone(),
                 "ft_transfer",
                 &json!({
-                    "receiver_id": receiver.valid_account_id(),
+                    "receiver_id": receiver.account_id(),
                     "amount": U128::from(amount),
                 })
                 .to_string()
                 .into_bytes(),
-                DEFAULT_GAS,
+                DEFAULT_GAS.0,
                 1,
             )
             .assert_success();
@@ -371,7 +379,7 @@ impl Env {
     pub fn get_asset(&self, token: &UserAccount) -> AssetDetailedView {
         let asset: Option<AssetDetailedView> = self
             .near
-            .view_method_call(self.contract.contract.get_asset(token.valid_account_id()))
+            .view_method_call(self.contract.contract.get_asset(token.account_id()))
             .unwrap_json();
         asset.unwrap()
     }
@@ -379,7 +387,7 @@ impl Env {
     pub fn get_account(&self, user: &UserAccount) -> AccountDetailedView {
         let asset: Option<AccountDetailedView> = self
             .near
-            .view_method_call(self.contract.contract.get_account(user.valid_account_id()))
+            .view_method_call(self.contract.contract.get_account(user.account_id()))
             .unwrap_json();
         asset.unwrap()
     }
@@ -413,11 +421,11 @@ impl Env {
     ) -> ExecutionResult {
         user.function_call(
             self.oracle.contract.oracle_call(
-                self.contract.user_account.valid_account_id(),
+                self.contract.user_account.account_id(),
                 price_data,
                 serde_json::to_string(&msg).unwrap(),
             ),
-            MAX_GAS,
+            MAX_GAS.0,
             ONE_YOCTO,
         )
     }
@@ -474,13 +482,13 @@ impl Env {
     }
 }
 
-pub fn init_token(e: &Env, token_account_id: &str, decimals: u8) -> UserAccount {
+pub fn init_token(e: &Env, token_account_id: &AccountId, decimals: u8) -> UserAccount {
     let token = e.near.deploy_and_init(
         &FUNGIBLE_TOKEN_WASM_BYTES,
-        token_account_id.to_string(),
+        token_account_id.clone(),
         "new",
         &json!({
-            "owner_id": e.owner.valid_account_id(),
+            "owner_id": e.owner.account_id(),
             "total_supply": U128::from(10u128.pow((9 + decimals) as _)),
             "metadata": FungibleTokenMetadata {
                 spec: FT_METADATA_SPEC.to_string(),
@@ -495,21 +503,21 @@ pub fn init_token(e: &Env, token_account_id: &str, decimals: u8) -> UserAccount 
         .to_string()
         .into_bytes(),
         to_yocto("10"),
-        DEFAULT_GAS,
+        DEFAULT_GAS.0,
     );
 
-    ft_storage_deposit(&e.owner, token_account_id, BURROWLAND_ID);
+    ft_storage_deposit(&e.owner, token_account_id, &e.contract.account_id());
     token
 }
 
 impl Tokens {
     pub fn init(e: &Env) -> Self {
         Self {
-            wnear: init_token(e, "wrap.near", 24),
-            neth: init_token(e, "neth.near", 18),
-            ndai: init_token(e, "dai.near", 18),
-            nusdt: init_token(e, "nusdt.near", 6),
-            nusdc: init_token(e, "nusdc.near", 6),
+            wnear: init_token(e, &a("wrap.near"), 24),
+            neth: init_token(e, &a("neth.near"), 18),
+            ndai: init_token(e, &a("dai.near"), 18),
+            nusdt: init_token(e, &a("nusdt.near"), 6),
+            nusdc: init_token(e, &a("nusdc.near"), 6),
         }
     }
 }
@@ -517,27 +525,20 @@ impl Tokens {
 impl Users {
     pub fn init(e: &Env) -> Self {
         Self {
-            alice: e
-                .near
-                .create_user("alice.near".to_string(), to_yocto("10000")),
-            bob: e
-                .near
-                .create_user("bob.near".to_string(), to_yocto("10000")),
-            charlie: e
-                .near
-                .create_user("charlie.near".to_string(), to_yocto("10000")),
-            dude: e
-                .near
-                .create_user("dude.near".to_string(), to_yocto("10000")),
-            eve: e
-                .near
-                .create_user("eve.near".to_string(), to_yocto("10000")),
+            alice: e.near.create_user(a("alice.near"), to_yocto("10000")),
+            bob: e.near.create_user(a("bob.near"), to_yocto("10000")),
+            charlie: e.near.create_user(a("charlie.near"), to_yocto("10000")),
+            dude: e.near.create_user(a("dude.near"), to_yocto("10000")),
+            eve: e.near.create_user(a("eve.near"), to_yocto("10000")),
         }
     }
 }
 
 pub fn d(value: Balance, decimals: u8) -> Balance {
     value * 10u128.pow(decimals as _)
+}
+pub fn a(account_id: &str) -> AccountId {
+    AccountId::new_unchecked(account_id.to_string())
 }
 
 pub fn price_data(
@@ -547,21 +548,21 @@ pub fn price_data(
 ) -> PriceData {
     let mut prices = vec![
         AssetOptionalPrice {
-            asset_id: tokens.ndai.account_id(),
+            asset_id: tokens.ndai.account_id().to_string(),
             price: Some(Price {
                 multiplier: 10000,
                 decimals: 22,
             }),
         },
         AssetOptionalPrice {
-            asset_id: tokens.nusdc.account_id(),
+            asset_id: tokens.nusdc.account_id().to_string(),
             price: Some(Price {
                 multiplier: 10000,
                 decimals: 10,
             }),
         },
         AssetOptionalPrice {
-            asset_id: tokens.nusdt.account_id(),
+            asset_id: tokens.nusdt.account_id().to_string(),
             price: Some(Price {
                 multiplier: 10000,
                 decimals: 10,
@@ -570,7 +571,7 @@ pub fn price_data(
     ];
     if let Some(wnear_mul) = wnear_mul {
         prices.push(AssetOptionalPrice {
-            asset_id: tokens.wnear.account_id(),
+            asset_id: tokens.wnear.account_id().to_string(),
             price: Some(Price {
                 multiplier: wnear_mul,
                 decimals: 28,
@@ -579,7 +580,7 @@ pub fn price_data(
     }
     if let Some(neth_mul) = neth_mul {
         prices.push(AssetOptionalPrice {
-            asset_id: tokens.neth.account_id(),
+            asset_id: tokens.neth.account_id().to_string(),
             price: Some(Price {
                 multiplier: neth_mul,
                 decimals: 22,
