@@ -1,12 +1,10 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::ValidAccountId;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{Balance, Gas, Timestamp};
+use near_sdk::{AccountId, Balance, Timestamp};
 
 pub type AssetId = String;
 pub type DurationSec = u32;
 
-pub const TGAS: Gas = 10u64.pow(12);
 pub const NO_DEPOSIT: Balance = 0;
 pub const ONE_YOCTO: Balance = 1;
 
@@ -30,7 +28,7 @@ pub struct PriceData {
 }
 
 pub trait OraclePriceReceiver {
-    fn oracle_on_call(&mut self, sender_id: ValidAccountId, data: PriceData, msg: String);
+    fn oracle_on_call(&mut self, sender_id: AccountId, data: PriceData, msg: String);
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Copy)]
