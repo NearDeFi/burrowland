@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use common::{AssetOptionalPrice, Price, PriceData, ONE_YOCTO};
 use near_contract_standards::fungible_token::metadata::{FungibleTokenMetadata, FT_METADATA_SPEC};
 use near_sdk::json_types::U128;
@@ -16,9 +18,14 @@ use test_oracle::ContractContract as OracleContract;
 
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
     BURROWLAND_WASM_BYTES => "res/burrowland.wasm",
+    BURROWLAND_0_1_0_WASM_BYTES => "res/burrowland_0.1.0.wasm",
     TEST_ORACLE_WASM_BYTES => "res/test_oracle.wasm",
 
     FUNGIBLE_TOKEN_WASM_BYTES => "res/fungible_token.wasm",
+}
+
+pub fn burrowland_0_1_0_wasm_bytes() -> &'static [u8] {
+    &BURROWLAND_0_1_0_WASM_BYTES
 }
 
 pub const NEAR: &str = "near";
@@ -94,7 +101,7 @@ pub fn to_nano(timestamp: u32) -> Timestamp {
 }
 
 impl Env {
-    pub fn init() -> Self {
+    pub fn init_with_contract(contract_bytes: &[u8]) -> Self {
         let mut genesis_config = GenesisConfig::default();
         genesis_config.block_prod_time = 0;
         let root = init_simulator(Some(genesis_config));
@@ -118,7 +125,7 @@ impl Env {
         let contract = deploy!(
             contract: BurrowlandContract,
             contract_id: BURROWLAND_ID.to_string(),
-            bytes: &BURROWLAND_WASM_BYTES,
+            bytes: &contract_bytes,
             signer_account: near,
             deposit: to_yocto("20"),
             gas: DEFAULT_GAS.0,
@@ -165,6 +172,19 @@ impl Env {
             oracle,
             booster_token,
         }
+    }
+
+    pub fn init() -> Self {
+        Self::init_with_contract(&BURROWLAND_WASM_BYTES)
+    }
+
+    pub fn redeploy_latest(&self) {
+        self.contract
+            .user_account
+            .create_transaction(a(BURROWLAND_ID))
+            .deploy_contract(BURROWLAND_WASM_BYTES.to_vec())
+            .submit()
+            .assert_success();
     }
 
     pub fn setup_assets(&self, tokens: &Tokens) {
@@ -592,4 +612,33 @@ pub fn price_data(
         recency_duration_sec: 90,
         prices,
     }
+}
+
+pub fn basic_setup_with_contract(contract_bytes: &[u8]) -> (Env, Tokens, Users) {
+    let e = Env::init_with_contract(contract_bytes);
+    let tokens = Tokens::init(&e);
+    e.setup_assets(&tokens);
+    e.deposit_reserves(&tokens);
+
+    let users = Users::init(&e);
+    e.mint_tokens(&tokens, &users.alice);
+    storage_deposit(
+        &users.alice,
+        &e.contract.account_id(),
+        &users.alice.account_id(),
+        d(1, 23),
+    );
+    e.mint_tokens(&tokens, &users.bob);
+    storage_deposit(
+        &users.bob,
+        &e.contract.account_id(),
+        &users.bob.account_id(),
+        d(1, 23),
+    );
+
+    (e, tokens, users)
+}
+
+pub fn basic_setup() -> (Env, Tokens, Users) {
+    basic_setup_with_contract(&BURROWLAND_WASM_BYTES)
 }

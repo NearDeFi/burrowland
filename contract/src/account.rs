@@ -19,6 +19,11 @@ pub struct Account {
     #[borsh_skip]
     #[serde(skip_serializing)]
     pub affected_farms: Vec<FarmId>,
+
+    /// Tracks changes in storage usage by persistent collections in this account.
+    #[borsh_skip]
+    #[serde(skip)]
+    pub storage_tracker: StorageTracker,
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -53,6 +58,7 @@ impl Account {
                 account_id: account_id.clone(),
             }),
             affected_farms: vec![],
+            storage_tracker: Default::default(),
         }
     }
 
@@ -192,28 +198,19 @@ impl Contract {
         self.accounts.get(account_id).map(|o| o.into())
     }
 
-    pub fn internal_unwrap_account_with_storage(
-        &self,
-        account_id: &AccountId,
-    ) -> (Account, Storage) {
-        (
-            self.internal_unwrap_account(account_id),
-            self.internal_unwrap_storage(account_id),
-        )
-    }
-
     pub fn internal_unwrap_account(&self, account_id: &AccountId) -> Account {
         self.internal_get_account(account_id)
             .expect("Account is not registered")
     }
 
-    pub fn internal_set_account(
-        &mut self,
-        account_id: &AccountId,
-        account: Account,
-        storage: Storage,
-    ) {
+    pub fn internal_set_account(&mut self, account_id: &AccountId, mut account: Account) {
+        let mut storage = self.internal_unwrap_storage(account_id);
+        storage
+            .storage_tracker
+            .consume(&mut account.storage_tracker);
+        storage.storage_tracker.start();
         self.accounts.insert(account_id, &account.into());
+        storage.storage_tracker.stop();
         self.internal_set_storage(account_id, storage);
     }
 }
