@@ -1,7 +1,5 @@
 use crate::*;
 
-const MAX_NUM_ASSETS: usize = 10;
-
 #[derive(Deserialize)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug, Serialize))]
 #[serde(crate = "near_sdk::serde")]
@@ -129,7 +127,10 @@ impl Contract {
             }
         }
         if need_number_check {
-            assert!(account.collateral.len() + account.borrowed.len() <= MAX_NUM_ASSETS);
+            assert!(
+                account.collateral.len() + account.borrowed.len()
+                    <= self.internal_config().max_num_assets as _
+            );
         }
         if need_risk_check {
             assert!(self.compute_max_discount(account, &prices) == BigDecimal::zero());
@@ -334,12 +335,12 @@ impl Contract {
         let mut collateral_taken_sum = BigDecimal::zero();
 
         for asset_amount in in_assets {
-            let asset = self.internal_unwrap_asset(&asset_amount.token_id);
             liquidation_account.add_affected_farm(FarmId::Borrowed(asset_amount.token_id.clone()));
             let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_id);
             let amount =
                 self.internal_repay(&mut account_asset, &mut liquidation_account, &asset_amount);
             account.internal_set_asset(&asset_amount.token_id, account_asset);
+            let asset = self.internal_unwrap_asset(&asset_amount.token_id);
 
             borrowed_repaid_sum = borrowed_repaid_sum
                 + BigDecimal::from_balance_price(

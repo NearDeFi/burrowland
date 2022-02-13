@@ -147,6 +147,8 @@ impl Contract {
             asset.borrowed.shares.0 > 0 || asset.borrowed.balance == 0,
             "Borrowed invariant broken"
         );
+        asset.supplied.assert_invariant();
+        asset.borrowed.assert_invariant();
         ASSETS
             .lock()
             .unwrap()

@@ -219,7 +219,7 @@ impl Contract {
     /// Claims all unclaimed farm rewards.
     pub fn account_farm_claim_all(&mut self) {
         let account_id = env::predecessor_account_id();
-        let mut account = self.internal_unwrap_account(&env::predecessor_account_id());
+        let mut account = self.internal_unwrap_account(&account_id);
         account.add_all_affected_farms();
         self.internal_account_apply_affected_farms(&mut account, false);
         self.internal_set_account(&account_id, account);

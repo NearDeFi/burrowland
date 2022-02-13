@@ -18,14 +18,14 @@ use test_oracle::ContractContract as OracleContract;
 
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
     BURROWLAND_WASM_BYTES => "res/burrowland.wasm",
-    BURROWLAND_0_1_0_WASM_BYTES => "res/burrowland_0.1.0.wasm",
+    BURROWLAND_0_1_1_WASM_BYTES => "res/burrowland_0.1.1.wasm",
     TEST_ORACLE_WASM_BYTES => "res/test_oracle.wasm",
 
     FUNGIBLE_TOKEN_WASM_BYTES => "res/fungible_token.wasm",
 }
 
-pub fn burrowland_0_1_0_wasm_bytes() -> &'static [u8] {
-    &BURROWLAND_0_1_0_WASM_BYTES
+pub fn burrowland_0_1_1_wasm_bytes() -> &'static [u8] {
+    &BURROWLAND_0_1_1_WASM_BYTES
 }
 
 pub const NEAR: &str = "near";
@@ -135,6 +135,9 @@ impl Env {
                     owner_id: owner.account_id(),
                     booster_token_id: a(BOOSTER_TOKEN_ID),
                     booster_decimals: BOOSTER_TOKEN_DECIMALS,
+                    max_num_assets: 10,
+                    maximum_recency_duration_sec: 90,
+                    maximum_staleness_duration_sec: 15,
                 }
             )
         );
@@ -183,6 +186,12 @@ impl Env {
             .user_account
             .create_transaction(a(BURROWLAND_ID))
             .deploy_contract(BURROWLAND_WASM_BYTES.to_vec())
+            .function_call(
+                "migrate_state".to_string(),
+                b"{}".to_vec(),
+                DEFAULT_GAS.0,
+                0,
+            )
             .submit()
             .assert_success();
     }
