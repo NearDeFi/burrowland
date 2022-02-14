@@ -15,6 +15,18 @@ pub struct Config {
 
     /// The number of decimals of the booster fungible token.
     pub booster_decimals: u8,
+
+    /// The total number of different assets
+    pub max_num_assets: u32,
+
+    /// The maximum number of seconds expected from the oracle price call.
+    pub maximum_recency_duration_sec: DurationSec,
+
+    /// Maximum staleness duration of the price data timestamp.
+    /// Because NEAR protocol doesn't implement the gas auction right now, the only reason to
+    /// delay the price updates are due to the shard congestion.
+    /// This parameter can be updated in the future by the owner.
+    pub maximum_staleness_duration_sec: DurationSec,
 }
 
 impl Contract {
@@ -77,6 +89,12 @@ impl Contract {
         asset_config.assert_valid();
         self.assert_owner();
         let mut asset = self.internal_unwrap_asset(&token_id);
+        if asset.config.extra_decimals != asset_config.extra_decimals {
+            assert!(
+                asset.borrowed.balance == 0 && asset.supplied.balance == 0 && asset.reserved == 0,
+                "Can't change extra decimals if any of the balances are not 0"
+            );
+        }
         asset.config = asset_config;
         self.internal_set_asset(&token_id, asset);
     }

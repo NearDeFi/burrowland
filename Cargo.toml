@@ -1,6 +1,6 @@
 [package]
 name = "burrowland"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Eugene The Dream <ek@proximity.dev>"]
 edition = "2018"
 

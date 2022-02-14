@@ -67,6 +67,8 @@ impl AssetConfig {
         assert!(self.reserve_ratio <= MAX_RATIO);
         assert!(self.target_utilization < MAX_POS);
         assert!(self.target_utilization_rate.0 <= self.max_utilization_rate.0);
+        // The volatility ratio can't be 100% to avoid free liquidations of such assets.
+        assert!(self.volatility_ratio < MAX_RATIO);
     }
 
     pub fn get_rate(

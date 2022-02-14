@@ -15,6 +15,7 @@ mod price_receiver;
 mod prices;
 mod storage;
 mod storage_tracker;
+mod upgrade;
 mod utils;
 
 pub use crate::account::*;
