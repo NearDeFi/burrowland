@@ -136,7 +136,7 @@ impl Contract {
             assert!(self.compute_max_discount(account, &prices) == BigDecimal::zero());
         }
 
-        self.internal_account_apply_affected_farms(account, true);
+        self.internal_account_apply_affected_farms(account);
     }
 
     pub fn internal_deposit(
@@ -383,7 +383,7 @@ impl Contract {
             "The liquidation amount is too large. The liquidation account should stay in risk"
         );
 
-        self.internal_account_apply_affected_farms(&mut liquidation_account, true);
+        self.internal_account_apply_affected_farms(&mut liquidation_account);
         self.internal_set_account(liquidation_account_id, liquidation_account);
 
         log!(

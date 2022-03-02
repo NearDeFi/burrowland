@@ -18,14 +18,14 @@ use test_oracle::ContractContract as OracleContract;
 
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
     BURROWLAND_WASM_BYTES => "res/burrowland.wasm",
-    BURROWLAND_0_1_1_WASM_BYTES => "res/burrowland_0.1.1.wasm",
+    BURROWLAND_0_2_0_WASM_BYTES => "res/burrowland_0.2.0.wasm",
     TEST_ORACLE_WASM_BYTES => "res/test_oracle.wasm",
 
     FUNGIBLE_TOKEN_WASM_BYTES => "res/fungible_token.wasm",
 }
 
-pub fn burrowland_0_1_1_wasm_bytes() -> &'static [u8] {
-    &BURROWLAND_0_1_1_WASM_BYTES
+pub fn burrowland_0_2_0_wasm_bytes() -> &'static [u8] {
+    &BURROWLAND_0_2_0_WASM_BYTES
 }
 
 pub const NEAR: &str = "near";
@@ -41,6 +41,8 @@ pub const BOOSTER_TOKEN_TOTAL_SUPPLY: Balance =
     1_000_000_000 * 10u128.pow(BOOSTER_TOKEN_DECIMALS as _);
 
 pub const DEPOSIT_TO_RESERVE: &str = "\"DepositToReserve\"";
+
+pub const GENESIS_TIMESTAMP: u64 = 1_600_000_000 * 10u64.pow(9);
 
 pub struct Env {
     pub root: UserAccount,
@@ -103,6 +105,7 @@ pub fn to_nano(timestamp: u32) -> Timestamp {
 impl Env {
     pub fn init_with_contract(contract_bytes: &[u8]) -> Self {
         let mut genesis_config = GenesisConfig::default();
+        genesis_config.genesis_time = GENESIS_TIMESTAMP;
         genesis_config.block_prod_time = 0;
         let root = init_simulator(Some(genesis_config));
         let near = root.create_user(
@@ -138,6 +141,9 @@ impl Env {
                     max_num_assets: 10,
                     maximum_recency_duration_sec: 90,
                     maximum_staleness_duration_sec: 15,
+                    minimum_staking_duration_sec: 2678400,
+                    maximum_staking_duration_sec: 31536000,
+                    x_booster_multiplier_at_maximum_staking_duration: 40000,
                 }
             )
         );
@@ -414,11 +420,11 @@ impl Env {
     }
 
     pub fn get_account(&self, user: &UserAccount) -> AccountDetailedView {
-        let asset: Option<AccountDetailedView> = self
+        let account: Option<AccountDetailedView> = self
             .near
             .view_method_call(self.contract.contract.get_account(user.account_id()))
             .unwrap_json();
-        asset.unwrap()
+        account.unwrap()
     }
 
     pub fn supply_to_collateral(
@@ -650,4 +656,8 @@ pub fn basic_setup_with_contract(contract_bytes: &[u8]) -> (Env, Tokens, Users) 
 
 pub fn basic_setup() -> (Env, Tokens, Users) {
     basic_setup_with_contract(&BURROWLAND_WASM_BYTES)
+}
+
+pub fn sec_to_nano(sec: u32) -> u64 {
+    u64::from(sec) * 10u64.pow(9)
 }

@@ -24,16 +24,21 @@ pub struct Account {
     #[borsh_skip]
     #[serde(skip)]
     pub storage_tracker: StorageTracker,
+
+    /// Staking of booster token.
+    pub booster_staking: Option<BoosterStaking>,
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub enum VAccount {
+    V0(AccountV0),
     Current(Account),
 }
 
 impl From<VAccount> for Account {
     fn from(v: VAccount) -> Self {
         match v {
+            VAccount::V0(c) => c.into(),
             VAccount::Current(c) => c,
         }
     }
@@ -59,6 +64,7 @@ impl Account {
             }),
             affected_farms: vec![],
             storage_tracker: Default::default(),
+            booster_staking: None,
         }
     }
 
@@ -140,20 +146,22 @@ impl Account {
         }
     }
 
-    pub fn add_all_affected_farms(&mut self) {
-        let len = self.affected_farms.len();
-        for farm_id in self.farms.keys() {
-            if len == 0
-                || self
-                    .affected_farms
-                    .iter()
-                    .take(len)
-                    .find(|f| *f == &farm_id)
-                    .is_none()
-            {
-                self.affected_farms.push(farm_id);
+    /// Returns all assets that can be potentially farmed.
+    pub fn get_all_potential_farms(&self) -> Vec<FarmId> {
+        let mut potential_farms = vec![];
+        for token_id in self.supplied.keys() {
+            potential_farms.push(FarmId::Supplied(token_id));
+        }
+        for CollateralAsset { token_id, .. } in self.collateral.iter() {
+            let farm_id = FarmId::Supplied(token_id.clone());
+            if !potential_farms.contains(&farm_id) {
+                potential_farms.push(farm_id);
             }
         }
+        for BorrowedAsset { token_id, .. } in &self.borrowed {
+            potential_farms.push(FarmId::Borrowed(token_id.clone()));
+        }
+        potential_farms
     }
 
     pub fn get_supplied_shares(&self, token_id: &TokenId) -> Shares {

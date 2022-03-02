@@ -26,6 +26,10 @@ pub struct AccountDetailedView {
     pub borrowed: Vec<AssetView>,
     /// Account farms
     pub farms: Vec<AccountFarmView>,
+    /// Whether the account has assets, that can be farmed.
+    pub has_non_farmed_assets: bool,
+    /// Staking of booster token.
+    pub booster_staking: Option<BoosterStaking>,
 }
 
 #[derive(Serialize)]
@@ -50,10 +54,13 @@ pub struct AccountFarmRewardView {
 
 impl Contract {
     pub fn account_into_detailed_view(&self, account: Account) -> AccountDetailedView {
+        let mut potential_farms = account.get_all_potential_farms();
         let farms = account
             .farms
             .keys()
             .map(|farm_id| {
+                // Remove already active farm.
+                potential_farms.retain(|f| f != &farm_id);
                 let mut asset_farm = self.internal_unwrap_asset_farm(&farm_id, true);
                 let (account_farm, new_rewards, inactive_rewards) =
                     self.internal_account_farm_claim(&account, &farm_id, &asset_farm);
@@ -91,6 +98,10 @@ impl Contract {
                 }
             })
             .collect();
+        // Check whether some asset can be farmed, but not farming yet.
+        let has_non_farmed_assets = potential_farms
+            .into_iter()
+            .any(|farm_id| self.asset_farms.contains_key(&farm_id));
         AccountDetailedView {
             account_id: account.account_id,
             supplied: unordered_map_pagination(&account.supplied, None, None)
@@ -114,6 +125,8 @@ impl Contract {
                 })
                 .collect(),
             farms,
+            has_non_farmed_assets,
+            booster_staking: account.booster_staking,
         }
     }
 
