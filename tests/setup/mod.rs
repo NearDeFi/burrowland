@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use common::{AssetOptionalPrice, Price, PriceData, ONE_YOCTO};
+use common::{AssetOptionalPrice, DurationSec, Price, PriceData, ONE_YOCTO};
 use near_contract_standards::fungible_token::metadata::{FungibleTokenMetadata, FT_METADATA_SPEC};
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
@@ -43,6 +43,9 @@ pub const BOOSTER_TOKEN_TOTAL_SUPPLY: Balance =
 pub const DEPOSIT_TO_RESERVE: &str = "\"DepositToReserve\"";
 
 pub const GENESIS_TIMESTAMP: u64 = 1_600_000_000 * 10u64.pow(9);
+
+pub const MIN_DURATION_SEC: DurationSec = 2678400;
+pub const MAX_DURATION_SEC: DurationSec = 31536000;
 
 pub struct Env {
     pub root: UserAccount,
@@ -514,6 +517,36 @@ impl Env {
 
     pub fn skip_time(&self, seconds: u32) {
         self.near.borrow_runtime_mut().cur_block.block_timestamp += to_nano(seconds);
+    }
+
+    pub fn account_stake_booster(
+        &self,
+        user: &UserAccount,
+        amount: Balance,
+        duration: DurationSec,
+    ) -> ExecutionResult {
+        user.call(
+            self.contract.account_id(),
+            "account_stake_booster",
+            &json!({
+                "amount": U128::from(amount),
+                "duration": duration,
+            })
+            .to_string()
+            .into_bytes(),
+            MAX_GAS.0,
+            1,
+        )
+    }
+
+    pub fn account_unstake_booster(&self, user: &UserAccount) -> ExecutionResult {
+        user.call(
+            self.contract.account_id(),
+            "account_unstake_booster",
+            b"{}",
+            MAX_GAS.0,
+            1,
+        )
     }
 }
 
