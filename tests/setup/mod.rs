@@ -10,6 +10,7 @@ use near_sdk_sim::{
     deploy, init_simulator, to_yocto, ContractAccount, ExecutionResult, UserAccount,
 };
 
+use contract::FarmId;
 pub use contract::{
     AccountDetailedView, Action, AssetAmount, AssetConfig, AssetDetailedView, Config,
     ContractContract as BurrowlandContract, PriceReceiverMsg, TokenReceiverMsg,
@@ -44,6 +45,7 @@ pub const DEPOSIT_TO_RESERVE: &str = "\"DepositToReserve\"";
 
 pub const GENESIS_TIMESTAMP: u64 = 1_600_000_000 * 10u64.pow(9);
 
+pub const ONE_DAY_SEC: DurationSec = 24 * 60 * 60;
 pub const MIN_DURATION_SEC: DurationSec = 2678400;
 pub const MAX_DURATION_SEC: DurationSec = 31536000;
 
@@ -525,27 +527,51 @@ impl Env {
         amount: Balance,
         duration: DurationSec,
     ) -> ExecutionResult {
-        user.call(
-            self.contract.account_id(),
-            "account_stake_booster",
-            &json!({
-                "amount": U128::from(amount),
-                "duration": duration,
-            })
-            .to_string()
-            .into_bytes(),
-            MAX_GAS.0,
+        user.function_call(
+            self.contract
+                .contract
+                .account_stake_booster(Some(U128::from(amount)), duration),
+            DEFAULT_GAS.0,
             1,
         )
     }
 
     pub fn account_unstake_booster(&self, user: &UserAccount) -> ExecutionResult {
-        user.call(
-            self.contract.account_id(),
-            "account_unstake_booster",
-            b"{}",
-            MAX_GAS.0,
+        user.function_call(
+            self.contract.contract.account_unstake_booster(),
+            DEFAULT_GAS.0,
             1,
+        )
+    }
+
+    pub fn add_farm(
+        &self,
+        farm_id: FarmId,
+        reward_token: &UserAccount,
+        new_reward_per_day: Balance,
+        new_booster_log_base: Balance,
+        reward_amount: Balance,
+    ) {
+        self.owner
+            .function_call(
+                self.contract.contract.add_asset_farm_reward(
+                    farm_id,
+                    reward_token.account_id(),
+                    U128::from(new_reward_per_day),
+                    U128::from(new_booster_log_base),
+                    U128::from(reward_amount),
+                ),
+                DEFAULT_GAS.0,
+                1,
+            )
+            .assert_success();
+    }
+
+    pub fn account_farm_claim_all(&self, user: &UserAccount) -> ExecutionResult {
+        user.function_call(
+            self.contract.contract.account_farm_claim_all(),
+            MAX_GAS.0,
+            0,
         )
     }
 }
