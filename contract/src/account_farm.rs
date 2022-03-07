@@ -202,7 +202,7 @@ impl Contract {
 
 #[near_bindgen]
 impl Contract {
-    /// Claims all unclaimed farm rewards and start farming new farms.
+    /// Claims all unclaimed farm rewards and starts farming new farms.
     pub fn account_farm_claim_all(&mut self) {
         let account_id = env::predecessor_account_id();
         let mut account = self.internal_unwrap_account(&account_id);

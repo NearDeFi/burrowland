@@ -209,6 +209,40 @@ fn test_farm_supplied() {
 }
 
 #[test]
+fn test_has_potential_farms() {
+    let (e, tokens, users) = basic_setup();
+
+    let amount = d(100, 18);
+    e.contract_ft_transfer_call(&tokens.ndai, &users.alice, amount, "")
+        .assert_success();
+
+    let account = e.get_account(&users.alice);
+    assert!(!account.has_non_farmed_assets);
+
+    let reward_per_day = d(100, 18);
+    let total_reward = d(3000, 18);
+
+    let farm_id = FarmId::Supplied(tokens.ndai.account_id());
+    e.add_farm(
+        farm_id.clone(),
+        &e.booster_token,
+        reward_per_day,
+        d(100, 18),
+        total_reward,
+    );
+
+    let account = e.get_account(&users.alice);
+    assert_eq!(account.farms.len(), 0);
+    assert!(account.has_non_farmed_assets);
+
+    e.account_farm_claim_all(&users.alice).assert_success();
+
+    let account = e.get_account(&users.alice);
+    assert_eq!(account.farms.len(), 1);
+    assert!(!account.has_non_farmed_assets);
+}
+
+#[test]
 fn test_farm_supplied_xbooster() {
     let (e, tokens, users) = basic_setup();
 
