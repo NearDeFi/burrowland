@@ -682,7 +682,7 @@ pub fn price_data(
         })
     }
     PriceData {
-        timestamp: 0,
+        timestamp: tokens.wnear.borrow_runtime().cur_block.block_timestamp,
         recency_duration_sec: 90,
         prices,
     }

@@ -1,5 +1,7 @@
 use crate::*;
 
+pub const MIN_BOOSTER_MULTIPLIER: u32 = 10000;
+
 /// Contract config
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -47,7 +49,7 @@ impl Config {
             "The maximum staking duration must be greater than minimum staking duration"
         );
         assert!(
-            self.x_booster_multiplier_at_maximum_staking_duration >= MAX_RATIO,
+            self.x_booster_multiplier_at_maximum_staking_duration >= MIN_BOOSTER_MULTIPLIER,
             "xBooster multiplier should be no less than 100%"
         );
     }
