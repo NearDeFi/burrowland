@@ -382,6 +382,10 @@ impl Contract {
             new_max_discount > BigDecimal::zero(),
             "The liquidation amount is too large. The liquidation account should stay in risk"
         );
+        assert!(
+            new_max_discount < max_discount,
+            "The health factor of liquidation account can't decrease"
+        );
 
         self.internal_account_apply_affected_farms(&mut liquidation_account);
         self.internal_set_account(liquidation_account_id, liquidation_account);

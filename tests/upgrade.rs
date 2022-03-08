@@ -2,7 +2,7 @@ mod setup;
 
 use crate::setup::*;
 
-const LATEST_VERSION: &'static str = "0.4.0";
+const LATEST_VERSION: &'static str = "0.4.1";
 
 #[test]
 fn test_version() {
