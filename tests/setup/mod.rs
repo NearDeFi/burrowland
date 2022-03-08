@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use common::{AssetOptionalPrice, Price, PriceData, ONE_YOCTO};
+use common::{AssetOptionalPrice, DurationSec, Price, PriceData, ONE_YOCTO};
 use near_contract_standards::fungible_token::metadata::{FungibleTokenMetadata, FT_METADATA_SPEC};
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
@@ -10,6 +10,7 @@ use near_sdk_sim::{
     deploy, init_simulator, to_yocto, ContractAccount, ExecutionResult, UserAccount,
 };
 
+use contract::FarmId;
 pub use contract::{
     AccountDetailedView, Action, AssetAmount, AssetConfig, AssetDetailedView, Config,
     ContractContract as BurrowlandContract, PriceReceiverMsg, TokenReceiverMsg,
@@ -18,14 +19,14 @@ use test_oracle::ContractContract as OracleContract;
 
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
     BURROWLAND_WASM_BYTES => "res/burrowland.wasm",
-    BURROWLAND_0_1_1_WASM_BYTES => "res/burrowland_0.1.1.wasm",
+    BURROWLAND_0_2_0_WASM_BYTES => "res/burrowland_0.2.0.wasm",
     TEST_ORACLE_WASM_BYTES => "res/test_oracle.wasm",
 
     FUNGIBLE_TOKEN_WASM_BYTES => "res/fungible_token.wasm",
 }
 
-pub fn burrowland_0_1_1_wasm_bytes() -> &'static [u8] {
-    &BURROWLAND_0_1_1_WASM_BYTES
+pub fn burrowland_0_2_0_wasm_bytes() -> &'static [u8] {
+    &BURROWLAND_0_2_0_WASM_BYTES
 }
 
 pub const NEAR: &str = "near";
@@ -41,6 +42,12 @@ pub const BOOSTER_TOKEN_TOTAL_SUPPLY: Balance =
     1_000_000_000 * 10u128.pow(BOOSTER_TOKEN_DECIMALS as _);
 
 pub const DEPOSIT_TO_RESERVE: &str = "\"DepositToReserve\"";
+
+pub const GENESIS_TIMESTAMP: u64 = 1_600_000_000 * 10u64.pow(9);
+
+pub const ONE_DAY_SEC: DurationSec = 24 * 60 * 60;
+pub const MIN_DURATION_SEC: DurationSec = 2678400;
+pub const MAX_DURATION_SEC: DurationSec = 31536000;
 
 pub struct Env {
     pub root: UserAccount,
@@ -103,6 +110,7 @@ pub fn to_nano(timestamp: u32) -> Timestamp {
 impl Env {
     pub fn init_with_contract(contract_bytes: &[u8]) -> Self {
         let mut genesis_config = GenesisConfig::default();
+        genesis_config.genesis_time = GENESIS_TIMESTAMP;
         genesis_config.block_prod_time = 0;
         let root = init_simulator(Some(genesis_config));
         let near = root.create_user(
@@ -138,6 +146,9 @@ impl Env {
                     max_num_assets: 10,
                     maximum_recency_duration_sec: 90,
                     maximum_staleness_duration_sec: 15,
+                    minimum_staking_duration_sec: 2678400,
+                    maximum_staking_duration_sec: 31536000,
+                    x_booster_multiplier_at_maximum_staking_duration: 40000,
                 }
             )
         );
@@ -414,11 +425,11 @@ impl Env {
     }
 
     pub fn get_account(&self, user: &UserAccount) -> AccountDetailedView {
-        let asset: Option<AccountDetailedView> = self
+        let account: Option<AccountDetailedView> = self
             .near
             .view_method_call(self.contract.contract.get_account(user.account_id()))
             .unwrap_json();
-        asset.unwrap()
+        account.unwrap()
     }
 
     pub fn supply_to_collateral(
@@ -508,6 +519,60 @@ impl Env {
 
     pub fn skip_time(&self, seconds: u32) {
         self.near.borrow_runtime_mut().cur_block.block_timestamp += to_nano(seconds);
+    }
+
+    pub fn account_stake_booster(
+        &self,
+        user: &UserAccount,
+        amount: Balance,
+        duration: DurationSec,
+    ) -> ExecutionResult {
+        user.function_call(
+            self.contract
+                .contract
+                .account_stake_booster(Some(U128::from(amount)), duration),
+            DEFAULT_GAS.0,
+            1,
+        )
+    }
+
+    pub fn account_unstake_booster(&self, user: &UserAccount) -> ExecutionResult {
+        user.function_call(
+            self.contract.contract.account_unstake_booster(),
+            DEFAULT_GAS.0,
+            1,
+        )
+    }
+
+    pub fn add_farm(
+        &self,
+        farm_id: FarmId,
+        reward_token: &UserAccount,
+        new_reward_per_day: Balance,
+        new_booster_log_base: Balance,
+        reward_amount: Balance,
+    ) {
+        self.owner
+            .function_call(
+                self.contract.contract.add_asset_farm_reward(
+                    farm_id,
+                    reward_token.account_id(),
+                    U128::from(new_reward_per_day),
+                    U128::from(new_booster_log_base),
+                    U128::from(reward_amount),
+                ),
+                DEFAULT_GAS.0,
+                1,
+            )
+            .assert_success();
+    }
+
+    pub fn account_farm_claim_all(&self, user: &UserAccount) -> ExecutionResult {
+        user.function_call(
+            self.contract.contract.account_farm_claim_all(),
+            MAX_GAS.0,
+            0,
+        )
     }
 }
 
@@ -650,4 +715,8 @@ pub fn basic_setup_with_contract(contract_bytes: &[u8]) -> (Env, Tokens, Users) 
 
 pub fn basic_setup() -> (Env, Tokens, Users) {
     basic_setup_with_contract(&BURROWLAND_WASM_BYTES)
+}
+
+pub fn sec_to_nano(sec: u32) -> u64 {
+    u64::from(sec) * 10u64.pow(9)
 }

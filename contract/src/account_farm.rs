@@ -127,19 +127,8 @@ impl Contract {
         (account_farm, new_rewards, inactive_rewards)
     }
 
-    pub fn internal_account_apply_affected_farms(
-        &mut self,
-        account: &mut Account,
-        verify_booster: bool,
-    ) {
+    pub fn internal_account_apply_affected_farms(&mut self, account: &mut Account) {
         let config = self.internal_config();
-        if verify_booster
-            && account
-                .affected_farms
-                .contains(&FarmId::Supplied(config.booster_token_id.clone()))
-        {
-            account.add_all_affected_farms();
-        }
         if account.affected_farms.is_empty() {
             return;
         }
@@ -163,13 +152,10 @@ impl Contract {
         for (token_id, &reward) in &all_rewards {
             self.internal_deposit(account, &token_id, reward);
         }
-        let booster_balance = self
-            .internal_get_asset(&config.booster_token_id)
-            .map(|booster| {
-                booster
-                    .supplied
-                    .shares_to_amount(account.get_supplied_shares(&config.booster_token_id), false)
-            })
+        let booster_balance = account
+            .booster_staking
+            .as_ref()
+            .map(|b| b.x_booster_amount)
             .unwrap_or(0);
         let booster_base = 10u128.pow(config.booster_decimals as u32);
 
@@ -216,12 +202,14 @@ impl Contract {
 
 #[near_bindgen]
 impl Contract {
-    /// Claims all unclaimed farm rewards.
+    /// Claims all unclaimed farm rewards and starts farming new farms.
     pub fn account_farm_claim_all(&mut self) {
         let account_id = env::predecessor_account_id();
         let mut account = self.internal_unwrap_account(&account_id);
-        account.add_all_affected_farms();
-        self.internal_account_apply_affected_farms(&mut account, false);
+        account
+            .affected_farms
+            .extend(account.get_all_potential_farms());
+        self.internal_account_apply_affected_farms(&mut account);
         self.internal_set_account(&account_id, account);
     }
 }

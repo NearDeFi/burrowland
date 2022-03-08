@@ -27,6 +27,30 @@ pub struct Config {
     /// delay the price updates are due to the shard congestion.
     /// This parameter can be updated in the future by the owner.
     pub maximum_staleness_duration_sec: DurationSec,
+
+    /// The minimum duration to stake booster token in seconds.
+    pub minimum_staking_duration_sec: DurationSec,
+
+    /// The maximum duration to stake booster token in seconds.
+    pub maximum_staking_duration_sec: DurationSec,
+
+    /// The rate of xBooster for the amount of Booster given for the maximum staking duration.
+    /// Assuming the 100% multiplier at the minimum staking duration. Should be no less than 100%.
+    /// E.g. 20000 means 200% multiplier (or 2X).
+    pub x_booster_multiplier_at_maximum_staking_duration: u32,
+}
+
+impl Config {
+    pub fn assert_valid(&self) {
+        assert!(
+            self.minimum_staking_duration_sec < self.maximum_staking_duration_sec,
+            "The maximum staking duration must be greater than minimum staking duration"
+        );
+        assert!(
+            self.x_booster_multiplier_at_maximum_staking_duration >= MAX_RATIO,
+            "xBooster multiplier should be no less than 100%"
+        );
+    }
 }
 
 impl Contract {
@@ -61,6 +85,7 @@ impl Contract {
     pub fn update_config(&mut self, config: Config) {
         assert_one_yocto();
         self.assert_owner();
+        config.assert_valid();
         self.config.set(&config);
     }
 
