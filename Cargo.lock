@@ -333,7 +333,7 @@ checksum = "771fe0050b883fcc3ea2359b1a96bcfbc090b7116eae7c3c512c7a083fdf23d3"
 
 [[package]]
 name = "burrowland"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "approx",
  "common",
@@ -500,11 +500,12 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
 name = "contract"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "common",
  "near-contract-standards",
  "near-sdk",
+ "near-sys",
  "once_cell",
  "rand 0.8.4",
  "uint",
@@ -3076,9 +3077,9 @@ checksum = "56dee185309b50d1f11bfedef0fe6d036842e3fb77413abef29f8f8d1c5d4c1c"
 
 [[package]]
 name = "uint"
-version = "0.9.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6470ab50f482bde894a037a57064480a246dbfdd5960bd65a44824693f08da5f"
+checksum = "e11fe9a9348741cf134085ad57c249508345fe16411b3d7fb4ff2da2f1d6382e"
 dependencies = [
  "byteorder",
  "crunchy",
