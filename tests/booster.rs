@@ -55,6 +55,7 @@ fn test_booster_stake_unstake() {
     assert_eq!(booster_staking.x_booster_amount, amount * 4);
 
     e.account_unstake_booster(&users.alice).assert_success();
+    assert!(!e.account_unstake_booster(&users.alice).is_ok());
 
     let asset = e.get_asset(&e.booster_token);
     assert_eq!(asset.supplied.balance, amount);
@@ -63,6 +64,7 @@ fn test_booster_stake_unstake() {
     assert_eq!(account.supplied[0].balance, amount);
     assert_eq!(account.supplied[0].token_id, e.booster_token.account_id());
     assert!(account.booster_staking.is_none());
+    assert!(!e.account_unstake_booster(&users.alice).is_ok());
 }
 
 #[test]
