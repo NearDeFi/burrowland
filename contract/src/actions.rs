@@ -384,7 +384,8 @@ impl Contract {
         );
         assert!(
             new_max_discount < max_discount,
-            "The health factor of liquidation account can't decrease"
+            "The health factor of liquidation account can't decrease. New discount {} < old discount {}",
+            new_max_discount, max_discount
         );
 
         self.internal_account_apply_affected_farms(&mut liquidation_account);

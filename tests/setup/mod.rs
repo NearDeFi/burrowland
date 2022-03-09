@@ -20,7 +20,7 @@ use test_oracle::ContractContract as OracleContract;
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
     BURROWLAND_WASM_BYTES => "res/burrowland.wasm",
     BURROWLAND_0_3_0_WASM_BYTES => "res/burrowland_0.3.0.wasm",
-    BURROWLAND_0_4_0_FAKE_WASM_BYTES => "res/burrowland_0.4.0-fake.wasm",
+    BURROWLAND_0_4_0_WASM_BYTES => "res/burrowland_0.4.0.wasm",
     TEST_ORACLE_WASM_BYTES => "res/test_oracle.wasm",
 
     FUNGIBLE_TOKEN_WASM_BYTES => "res/fungible_token.wasm",
@@ -30,8 +30,8 @@ pub fn burrowland_0_3_0_wasm_bytes() -> &'static [u8] {
     &BURROWLAND_0_3_0_WASM_BYTES
 }
 
-pub fn burrowland_0_4_0_fake_wasm_bytes() -> &'static [u8] {
-    &BURROWLAND_0_4_0_FAKE_WASM_BYTES
+pub fn burrowland_0_4_0_wasm_bytes() -> &'static [u8] {
+    &BURROWLAND_0_4_0_WASM_BYTES
 }
 
 pub fn burrowland_wasm_bytes() -> &'static [u8] {
@@ -201,11 +201,11 @@ impl Env {
         Self::init_with_contract(&BURROWLAND_WASM_BYTES)
     }
 
-    pub fn redeploy_latest_by_key(&self) {
+    pub fn deploy_contract_by_key(&self, contract_bytes: &[u8]) -> ExecutionResult {
         self.contract
             .user_account
             .create_transaction(a(BURROWLAND_ID))
-            .deploy_contract(BURROWLAND_WASM_BYTES.to_vec())
+            .deploy_contract(contract_bytes.to_vec())
             .function_call(
                 "migrate_state".to_string(),
                 b"{}".to_vec(),
@@ -213,7 +213,6 @@ impl Env {
                 0,
             )
             .submit()
-            .assert_success();
     }
 
     pub fn deploy_contract_by_owner(&self, contract_bytes: &[u8]) -> ExecutionResult {
@@ -497,11 +496,7 @@ impl Env {
             &user,
             price_data,
             PriceReceiverMsg::Execute {
-                actions: vec![Action::Borrow(AssetAmount {
-                    token_id: token.account_id(),
-                    amount: Some(amount.into()),
-                    max_amount: None,
-                })],
+                actions: vec![Action::Borrow(asset_amount(token, amount))],
             },
         )
     }
@@ -518,17 +513,30 @@ impl Env {
             price_data,
             PriceReceiverMsg::Execute {
                 actions: vec![
-                    Action::Borrow(AssetAmount {
-                        token_id: token.account_id(),
-                        amount: Some(amount.into()),
-                        max_amount: None,
-                    }),
-                    Action::Withdraw(AssetAmount {
-                        token_id: token.account_id(),
-                        amount: Some(amount.into()),
-                        max_amount: None,
-                    }),
+                    Action::Borrow(asset_amount(token, amount)),
+                    Action::Withdraw(asset_amount(token, amount)),
                 ],
+            },
+        )
+    }
+
+    pub fn liquidate(
+        &self,
+        user: &UserAccount,
+        liquidation_user: &UserAccount,
+        price_data: PriceData,
+        in_assets: Vec<AssetAmount>,
+        out_assets: Vec<AssetAmount>,
+    ) -> ExecutionResult {
+        self.oracle_call(
+            &user,
+            price_data,
+            PriceReceiverMsg::Execute {
+                actions: vec![Action::Liquidate {
+                    account_id: liquidation_user.account_id(),
+                    in_assets,
+                    out_assets,
+                }],
             },
         )
     }
@@ -735,4 +743,12 @@ pub fn basic_setup() -> (Env, Tokens, Users) {
 
 pub fn sec_to_nano(sec: u32) -> u64 {
     u64::from(sec) * 10u64.pow(9)
+}
+
+pub fn asset_amount(token: &UserAccount, amount: Balance) -> AssetAmount {
+    AssetAmount {
+        token_id: token.account_id(),
+        amount: Some(amount.into()),
+        max_amount: None,
+    }
 }
