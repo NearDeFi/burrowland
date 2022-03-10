@@ -21,6 +21,7 @@ near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
     BURROWLAND_WASM_BYTES => "res/burrowland.wasm",
     BURROWLAND_0_3_0_WASM_BYTES => "res/burrowland_0.3.0.wasm",
     BURROWLAND_0_4_0_WASM_BYTES => "res/burrowland_0.4.0.wasm",
+    BURROWLAND_0_4_1_WASM_BYTES => "res/burrowland_0.4.1.wasm",
     TEST_ORACLE_WASM_BYTES => "res/test_oracle.wasm",
 
     FUNGIBLE_TOKEN_WASM_BYTES => "res/fungible_token.wasm",
@@ -32,6 +33,10 @@ pub fn burrowland_0_3_0_wasm_bytes() -> &'static [u8] {
 
 pub fn burrowland_0_4_0_wasm_bytes() -> &'static [u8] {
     &BURROWLAND_0_4_0_WASM_BYTES
+}
+
+pub fn burrowland_previous_wasm_bytes() -> &'static [u8] {
+    &BURROWLAND_0_4_1_WASM_BYTES
 }
 
 pub fn burrowland_wasm_bytes() -> &'static [u8] {
@@ -158,6 +163,7 @@ impl Env {
                     minimum_staking_duration_sec: 2678400,
                     maximum_staking_duration_sec: 31536000,
                     x_booster_multiplier_at_maximum_staking_duration: 40000,
+                    force_closing_enabled: true,
                 }
             )
         );
@@ -536,6 +542,23 @@ impl Env {
                     account_id: liquidation_user.account_id(),
                     in_assets,
                     out_assets,
+                }],
+            },
+        )
+    }
+
+    pub fn force_close(
+        &self,
+        user: &UserAccount,
+        liquidation_user: &UserAccount,
+        price_data: PriceData,
+    ) -> ExecutionResult {
+        self.oracle_call(
+            &user,
+            price_data,
+            PriceReceiverMsg::Execute {
+                actions: vec![Action::ForceClose {
+                    account_id: liquidation_user.account_id(),
                 }],
             },
         )

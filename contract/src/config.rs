@@ -40,6 +40,10 @@ pub struct Config {
     /// Assuming the 100% multiplier at the minimum staking duration. Should be no less than 100%.
     /// E.g. 20000 means 200% multiplier (or 2X).
     pub x_booster_multiplier_at_maximum_staking_duration: u32,
+
+    /// Whether an account with bad debt can be liquidated using reserves.
+    /// The account should have borrowed sum larger than the collateral sum.
+    pub force_closing_enabled: bool,
 }
 
 impl Config {
