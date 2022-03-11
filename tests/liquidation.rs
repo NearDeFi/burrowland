@@ -221,3 +221,66 @@ fn test_liquidation_decrease_health_factor() {
     assert_eq!(account.supplied[2].balance, usdc_amount_out);
     assert_eq!(account.supplied[2].apr, BigDecimal::zero());
 }
+
+/// Force closing the account with bad debt.
+#[test]
+fn test_force_close() {
+    let (e, tokens, users) = basic_setup();
+
+    let extra_decimals_mult = d(1, 12);
+
+    let supply_amount = d(1000, 18);
+    e.supply_to_collateral(
+        &users.alice,
+        &tokens.nusdc,
+        supply_amount / extra_decimals_mult,
+    )
+    .assert_success();
+
+    let borrow_amount = d(50, 24);
+    e.borrow_and_withdraw(
+        &users.alice,
+        &tokens.wnear,
+        price_data(&tokens, Some(100000), None),
+        borrow_amount,
+    )
+    .assert_success();
+
+    let asset = e.get_asset(&tokens.nusdc);
+    let usdc_reserve = asset.reserved;
+
+    let asset = e.get_asset(&tokens.wnear);
+    let wnear_reserve = asset.reserved;
+
+    // Attempt to force close the account with NEAR at 12$, the account debt is still not bad.
+    let res = e.force_close(
+        &users.bob,
+        &users.alice,
+        price_data(&tokens, Some(120000), None),
+    );
+    let err = match res.status() {
+        ExecutionStatus::Failure(e) => e.to_string(),
+        _ => panic!("Should fail"),
+    };
+    assert!(err.contains("is not greater than total collateral"));
+
+    // Force closing account with NEAR at 25$.
+    let res = e.force_close(
+        &users.bob,
+        &users.alice,
+        price_data(&tokens, Some(250000), None),
+    );
+    res.assert_success();
+    // println!("{:#?}", res.logs());
+
+    let account = e.get_account(&users.alice);
+    assert!(account.supplied.is_empty());
+    assert!(account.collateral.is_empty());
+    assert!(account.borrowed.is_empty());
+
+    let asset = e.get_asset(&tokens.nusdc);
+    assert_eq!(asset.reserved, usdc_reserve + supply_amount);
+
+    let asset = e.get_asset(&tokens.wnear);
+    assert_eq!(asset.reserved, wnear_reserve - borrow_amount);
+}
