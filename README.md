@@ -77,6 +77,7 @@ Liquidations rules:
 1. the initial health factor of the liquidated accounts has to be below 100%
 2. the discounted sum of the taken collateral should be less than the sum of repaid assets  
 3. the final health factor of the liquidated accounts has to stay below 100%
+4. the final health factor of the liquidated account should be higher than the initial health factor
 
 A liquidation action consists of the following:
 - `account_id` - the account ID that is being liquidated
@@ -97,9 +98,10 @@ repaid_sum = sum(in_asset_i * price_i)
 
 Once we action is completed, we can compute the final values and verify the liquidation rules:
 
-1. `health_factor < 100%`
+1. `initial_health_factor < 100%`
 2. `discounted_collateral_sum <= repaid_sum`
 3. `new_health_factor < 100%`
+3. `new_health_factor > initial_health_factor`
 
 The first rule only allows to liquidate accounts in the unhealthy state.
 The second rule prevents from taking more collateral than the repaid sum (after discount).
@@ -185,6 +187,7 @@ Now checking the liquidation rules:
 1. 87.5% < 100%
 2. 997.5 <= 1000
 3. 98.93% < 100%
+4. 98.93% > 87.5%
 ```
 
 All rules satisfied, so the liquidation was successful.
@@ -199,6 +202,127 @@ Notes:
   made less profit, by liquidating a smaller amount with a smaller collateral discount.
 - To fully realize the profit, `bob.near` has to take another action on some exchange and swap received `152` `wNEAR` for `nDAI`, which 
   may involve extra fees and transactional risks. That's why liquidators may wait for higher discount.
+
+### Booster token
+
+One of the assets may be designated as the Booster token. This asset can be staked (locked) for some given duration to become xBooster token.
+The amount of xBooster token depends on the amount of Booster token staked, the previous amount of xBooster token and the duration of the stake.
+xBooster token is non-transferrable and can not be unstaked until the staking duration expires.
+
+xBooster token may be used to increase farm multiplier. See Farms section for details.
+
+The following parameters in the config are used for Booster logic:
+- `booster_token_id` - the asset ID that is used as a booster token.
+- `booster_decimals` - the number of digits after decimal point for the booster token.
+- `minimum_staking_duration_sec` - the minimum duration in seconds that the booster token can be staked to get xBooster token.
+- `maximum_staking_duration_sec` - the maximum duration in seconds that the booster token can be staked to get xBooster token.
+- `x_booster_multiplier_at_maximum_staking_duration` - the multiplier of xBooster amount relative to Booster amount given at the maximum staking duration.
+
+The account can only have one staking duration. It means if the account has staked some amount of Booster token before, the restaking can only 
+be done for a longer duration from the current moment, than the expiration of the previous stake from the previous moment of staking.
+
+For example if the account previously staked Booster for `6` months `1` month ago. The new staking duration should be at least `5` months (`6 - 1`).
+
+To stake Booster token, an account should call `account_stake_booster` and pass `amount` (optional) and `duration` in seconds.
+- If the `amount` is not given than all existing booster token from the supplied assets of this account will be staked.
+- The duration should within range of `minimum_staking_duration_sec` and `maximum_staking_duration_sec` inclusive.
+- The `current time + duration` should be not less than the previous `unlock time` (if the previous stake exists).
+
+The xBooster multiplier for a given duration is computed using the following formula:
+
+`xbooster_multiplier(duration) = 1 + (duration - minimum_staking_duration_sec) / (maximum_staking_duration_sec - minimum_staking_duration_sec) * (x_booster_multiplier_at_maximum_staking_duration / 10000 - 1)`
+
+If the previous xBooster exists, then we have the following values:
+- `staked_booster_amount` - the total amount of Booster token staked by the account.
+- `x_booster_amount` - the total amount of xBooster token received for staking.
+- `unlock_timestamp` - the timestamp when xBooster can be unstaked to get back the total Booster amount.
+
+Compute the extra xBooster received for the new given `amount` and the `duration`:
+
+`extra_x_booster_amount = amount * xbooster_multiplier(duration)`
+
+If the previous xBooster stake exists then we compute the potential xBooster amount for the previous Booster token amount and the new duration, and 
+then compute the actual total new xBooster amount from the maximum of the restaking or keeping the old xBooster amount:
+
+```
+potential_x_booster_amount = staked_booster_amount * xbooster_multiplier(duration)
+total_xbooster_amount = max(x_booster_amount, potential_x_booster_amount) + extra_x_booster_amount
+```
+
+Once staked we remember the total Booster token amount staked, the new total xBooster amount and the unlock timestamp.
+- `staked_booster_amount = staked_booster_amount + amount`
+- `x_booster_amount = total_xbooster_amount`
+- `unlock_timestamp = current time + sec_to_nano(duration)`
+
+### Farms
+
+A farm is identified by the type of the asset (supplied or borrowed) and the asset ID.
+That's why there can be at most `N * 2` number of farms, where `N` is the number of different assets.
+
+A farm can have multiple rewards: one reward per asset ID.
+
+Each farm reward is identified by the asset ID it gives. The reward config includes:
+- `reward_per_day` - the amount of tokens split across farms participants daily based on their number of boosted shares (until there are no more remaining rewards).
+- `booster_log_base` - the log base for the xbooster amounts. It's used to compute boosted shares per account. The number includes decimals of the xBooster token. E.g. `100 * 1e18` is the log base of `100`, if xBooster has `18` decimals.
+- `remaining_rewards` - the amount of the remaining tokens to be distributed.
+
+For example to create a farm for `30` days and distribute `1000` tokens per day, the `reward_per_day` should be set to `1000` and the remaining rewards will be `30000`.
+
+Once the `remaining_rewards` becomes equal to `0`, the farm stops distributing this reward.
+
+#### Farm booster
+
+The farming multiplier for each specific farm is calculated based on `booster_log_base` and `x_booster_amount` for the account.
+
+`booster_decimals` is the number of decimals of the booster token. By default, it's `18`.
+
+`booster_base = 10 ** token_decimals`
+
+If the account has `x_booster_amount <= booster_base`, then the multiplier is `1`
+
+If `x_booster_amount > booster_base`, then the farming multiplier is the following:
+
+`farming_multiplier = 1 + log(x_booster_amount / booster_base) / log(booster_log_base / booster_base)`
+
+##### Farming multiplier example
+
+Let's say `booster_log_base` is `20 * 1e18`.
+
+If an account has `x_booster_amount` equal to:
+- `0`, then `farming_multiplier = 1`
+- `1 * 1e18`, then `farming_multiplier = 1`
+- `20 * 1e18`, then `farming_multiplier = 2`
+- `400 * 1e18`, then `farming_multiplier = 3`
+- `5 * 1e18`, then `farming_multiplier = 1.53724357368`
+
+##### Farm example
+
+Let's say there is a farm for supplying USDC that gives 1000 wNEAR per day and there are 2 users Alice and Bob.
+
+The farm has the following config:
+- `reward_per_day = 200 * 1e24` - 200 wNEAR per day
+- `booster_log_base = 10 * 1e18` - 10 log base for xBooster
+- `remaining_rewards = 30 * 1000 * 1e24` - 30 days
+
+- Alice puts `300` USDC in to supplied and has `100` xBooster tokens.
+- Bob puts `50` USDC in to supplied and has `10` xBooster tokens.
+
+Boosted shares are computed the following way:
+- Alice gets farming multiplier of `3X`, so the number of boosted shares becomes `900 (300 * 3)`.
+- Bob gets farming multiplier of `2X`, so the number of boosted shares becomes `100 (50 * 3)`.
+- The total is `1000 (900 + 100)` boosted shares.
+
+So Alice gets `90%` of the rewards and Bob gets `10%` of the rewards.
+
+So by the end of the day:
+- Alice gets `180` wNEAR per day.
+- Bob gets `20` wNEAR per day.
+
+Let's Charlie supplies `1000` USDC without xBooster tokens.
+- This adds `1000` boosted shares for Charlie. Now the total amount of boosted shares is `2000`.
+- Alice gets `45%` of the farm rewards equal to `90` wNEAR per day.
+- Bob gets `5%` of the farm rewards equal to `10` wNEAR per day.
+- Charlie gets `50%` of the farm rewards equal to `100` wNEAR per day.
 
 ## Development
 

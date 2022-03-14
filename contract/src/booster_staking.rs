@@ -68,10 +68,8 @@ impl Contract {
             .booster_staking
             .take()
             .map(|mut booster_staking| {
-                let old_unlock_timestamp_ns =
-                    std::cmp::max(booster_staking.unlock_timestamp, timestamp);
                 assert!(
-                    old_unlock_timestamp_ns <= new_unlock_timestamp_ns,
+                    booster_staking.unlock_timestamp <= new_unlock_timestamp_ns,
                     "The new staking duration is shorter than the current remaining staking duration"
                 );
                 let restaked_x_booster_amount = compute_x_booster_amount(
