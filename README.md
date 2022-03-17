@@ -297,19 +297,19 @@ If an account has `x_booster_amount` equal to:
 
 ##### Farm example
 
-Let's say there is a farm for supplying USDC that gives 1000 wNEAR per day and there are 2 users Alice and Bob.
+Let's say there is a farm for supplying USDC that gives 200 wNEAR per day and there are 2 users Alice and Bob.
 
 The farm has the following config:
 - `reward_per_day = 200 * 1e24` - 200 wNEAR per day
 - `booster_log_base = 10 * 1e18` - 10 log base for xBooster
-- `remaining_rewards = 30 * 1000 * 1e24` - 30 days
+- `remaining_rewards = 30 * 200 * 1e24` - 30 days
 
 - Alice puts `300` USDC in to supplied and has `100` xBooster tokens.
 - Bob puts `50` USDC in to supplied and has `10` xBooster tokens.
 
 Boosted shares are computed the following way:
 - Alice gets farming multiplier of `3X`, so the number of boosted shares becomes `900 (300 * 3)`.
-- Bob gets farming multiplier of `2X`, so the number of boosted shares becomes `100 (50 * 3)`.
+- Bob gets farming multiplier of `2X`, so the number of boosted shares becomes `100 (50 * 2)`.
 - The total is `1000 (900 + 100)` boosted shares.
 
 So Alice gets `90%` of the rewards and Bob gets `10%` of the rewards.

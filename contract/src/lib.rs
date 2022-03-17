@@ -84,6 +84,7 @@ impl Contract {
     /// Initializes the contract with the given config. Needs to be called once.
     #[init]
     pub fn new(config: Config) -> Self {
+        config.assert_valid();
         Self {
             accounts: UnorderedMap::new(StorageKey::Accounts),
             storage: LookupMap::new(StorageKey::Storage),
