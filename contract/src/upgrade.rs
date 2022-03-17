@@ -130,6 +130,15 @@ mod upgrade {
                 migrate_state_attached_gas.0,
             );
             // Scheduling to return config after the migration is completed.
+            //
+            // The upgrade method attaches it as an action, so the entire upgrade including deploy
+            // contract action and migration can be rolled back if the config view call can't be
+            // returned successfully. The view call deserializes the state and deserializes the
+            // config which contains the owner_id. If the contract can deserialize the current config,
+            // then it can validate the owner and execute the upgrade again (in case the previous
+            // upgrade/migration went badly).
+            //
+            // It's an extra safety guard for the remote contract upgrades.
             sys::promise_batch_action_function_call(
                 promise_id,
                 get_config_method_name.len() as _,
