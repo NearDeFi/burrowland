@@ -168,7 +168,9 @@ impl Contract {
                 let account_farm_reward = account_farm.rewards.get_mut(token_id).unwrap();
                 asset_farm_reward.boosted_shares -= account_farm_reward.boosted_shares;
                 if shares > 0 {
-                    let extra_shares = if booster_balance > booster_base {
+                    let extra_shares = if asset_farm_reward.booster_log_base > 0
+                        && booster_balance > booster_base
+                    {
                         let log_base =
                             (asset_farm_reward.booster_log_base as f64) / (booster_base as f64);
                         ((shares as f64)

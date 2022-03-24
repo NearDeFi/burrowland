@@ -10,6 +10,7 @@ mod asset_view;
 mod big_decimal;
 mod booster_staking;
 mod config;
+mod events;
 mod fungible_token;
 mod legacy;
 mod pool;
