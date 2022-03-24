@@ -50,22 +50,12 @@ impl Contract {
                     account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
                     let amount = self.internal_withdraw(account, &asset_amount);
                     self.internal_ft_transfer(account_id, &asset_amount.token_id, amount);
-                    log!(
-                        "Account {} withdraws {} of {}",
-                        account_id,
-                        amount,
-                        asset_amount.token_id
-                    );
+                    events::emit::withdraw_started(&account_id, amount, &asset_amount.token_id);
                 }
                 Action::IncreaseCollateral(asset_amount) => {
                     need_number_check = true;
                     let amount = self.internal_increase_collateral(account, &asset_amount);
-                    log!(
-                        "Account {} increases collateral {} of {}",
-                        account_id,
-                        amount,
-                        asset_amount.token_id
-                    );
+                    events::emit::increase_collateral(&account_id, amount, &asset_amount.token_id);
                 }
                 Action::DecreaseCollateral(asset_amount) => {
                     need_risk_check = true;
@@ -77,12 +67,7 @@ impl Contract {
                         &asset_amount,
                     );
                     account.internal_set_asset(&asset_amount.token_id, account_asset);
-                    log!(
-                        "Account {} decreases collateral {} of {}",
-                        account_id,
-                        amount,
-                        asset_amount.token_id
-                    );
+                    events::emit::decrease_collateral(&account_id, amount, &asset_amount.token_id);
                 }
                 Action::Borrow(asset_amount) => {
                     need_number_check = true;
@@ -90,24 +75,14 @@ impl Contract {
                     account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
                     account.add_affected_farm(FarmId::Borrowed(asset_amount.token_id.clone()));
                     let amount = self.internal_borrow(account, &asset_amount);
-                    log!(
-                        "Account {} borrows {} of {}",
-                        account_id,
-                        amount,
-                        asset_amount.token_id
-                    );
+                    events::emit::borrow(&account_id, amount, &asset_amount.token_id);
                 }
                 Action::Repay(asset_amount) => {
                     let mut account_asset = account.internal_unwrap_asset(&asset_amount.token_id);
                     account.add_affected_farm(FarmId::Supplied(asset_amount.token_id.clone()));
                     account.add_affected_farm(FarmId::Borrowed(asset_amount.token_id.clone()));
                     let amount = self.internal_repay(&mut account_asset, account, &asset_amount);
-                    log!(
-                        "Account {} repays {} of {}",
-                        account_id,
-                        amount,
-                        asset_amount.token_id
-                    );
+                    events::emit::repay(&account_id, amount, &asset_amount.token_id);
                     account.internal_set_asset(&asset_amount.token_id, account_asset);
                 }
                 Action::Liquidate {
@@ -405,12 +380,11 @@ impl Contract {
         self.internal_account_apply_affected_farms(&mut liquidation_account);
         self.internal_set_account(liquidation_account_id, liquidation_account);
 
-        log!(
-            "Account {} liquidates account {}: takes {} for repaying {}",
-            account_id,
-            liquidation_account_id,
-            collateral_taken_sum,
-            borrowed_repaid_sum
+        events::emit::liquidate(
+            &account_id,
+            &liquidation_account_id,
+            &collateral_taken_sum,
+            &borrowed_repaid_sum,
         );
     }
 
@@ -478,12 +452,7 @@ impl Contract {
         self.internal_account_apply_affected_farms(&mut liquidation_account);
         self.internal_set_account(liquidation_account_id, liquidation_account);
 
-        log!(
-            "Account {} was force closed: total collateral sum {} taken for repaying total borrowed sum {}",
-            liquidation_account_id,
-            collateral_sum,
-            borrowed_sum
-        );
+        events::emit::force_close(&liquidation_account_id, &collateral_sum, &borrowed_sum);
     }
 
     pub fn compute_max_discount(&self, account: &Account, prices: &Prices) -> BigDecimal {

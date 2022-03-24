@@ -2,6 +2,7 @@ mod setup;
 
 use crate::setup::*;
 use contract::BigDecimal;
+use near_sdk::serde_json;
 use near_sdk_sim::transaction::ExecutionStatus;
 
 /// Alice puts 1000 USDC and borrows 50 NEAR at 10$. Prices go up. REKT
@@ -184,7 +185,28 @@ fn test_liquidation_decrease_health_factor() {
         vec![asset_amount(&tokens.nusdc, usdc_amount_out)],
     );
     res.assert_success();
-    // println!("{:#?}", res.logs());
+
+    let logs = get_logs(&e.near.borrow_runtime());
+    let event = &logs[0];
+    assert!(event.starts_with(EVENT_JSON));
+
+    let value: serde_json::Value =
+        serde_json::from_str(&event[EVENT_JSON.len()..]).expect("Failed to parse the event");
+    assert_eq!(value["standard"].as_str().unwrap(), "burrow");
+    assert_eq!(value["event"].as_str().unwrap(), "liquidate");
+    assert_eq!(
+        value["data"][0]["account_id"].as_str().unwrap(),
+        users.bob.account_id().as_str()
+    );
+    assert_eq!(
+        value["data"][0]["liquidation_account_id"].as_str().unwrap(),
+        users.alice.account_id().as_str()
+    );
+    assert_eq!(
+        value["data"][0]["collateral_sum"].as_str().unwrap(),
+        "111.0"
+    );
+    assert_eq!(value["data"][0]["repaid_sum"].as_str().unwrap(), "108.8");
 
     let account = e.get_account(&users.alice);
     assert!(account.supplied.is_empty());
@@ -271,7 +293,23 @@ fn test_force_close() {
         price_data(&tokens, Some(250000), None),
     );
     res.assert_success();
-    // println!("{:#?}", res.logs());
+    let logs = get_logs(&e.near.borrow_runtime());
+    let event = &logs[0];
+    assert!(event.starts_with(EVENT_JSON));
+
+    let value: serde_json::Value =
+        serde_json::from_str(&event[EVENT_JSON.len()..]).expect("Failed to parse the event");
+    assert_eq!(value["standard"].as_str().unwrap(), "burrow");
+    assert_eq!(value["event"].as_str().unwrap(), "force_close");
+    assert_eq!(
+        value["data"][0]["liquidation_account_id"].as_str().unwrap(),
+        users.alice.account_id().as_str()
+    );
+    assert_eq!(
+        value["data"][0]["collateral_sum"].as_str().unwrap(),
+        "1000.0"
+    );
+    assert_eq!(value["data"][0]["repaid_sum"].as_str().unwrap(), "1250.0");
 
     let account = e.get_account(&users.alice);
     assert!(account.supplied.is_empty());

@@ -48,12 +48,7 @@ impl FungibleTokenReceiver for Contract {
                 TokenReceiverMsg::DepositToReserve => {
                     asset.reserved += amount;
                     self.internal_set_asset(&token_id, asset);
-                    log!(
-                        "Account {} deposits to reserve {} of {}",
-                        sender_id,
-                        amount,
-                        token_id
-                    );
+                    events::emit::deposit_to_reserve(&sender_id, amount, &token_id);
                     return PromiseOrValue::Value(U128(0));
                 }
             }
@@ -62,7 +57,7 @@ impl FungibleTokenReceiver for Contract {
         let mut account = self.internal_unwrap_account(&sender_id);
         account.add_affected_farm(FarmId::Supplied(token_id.clone()));
         self.internal_deposit(&mut account, &token_id, amount);
-        log!("Account {} deposits {} of {}", sender_id, amount, token_id);
+        events::emit::deposit(&sender_id, amount, &token_id);
         self.internal_execute(&sender_id, &mut account, actions, Prices::new());
         self.internal_set_account(&sender_id, account);
 
@@ -123,13 +118,10 @@ impl ExtSelf for Contract {
             let mut account = self.internal_unwrap_account(&account_id);
             account.add_affected_farm(FarmId::Supplied(token_id.clone()));
             self.internal_deposit(&mut account, &token_id, amount.0);
-            log!(
-                "Withdrawal has failed: Account {} deposits {} of {}",
-                account_id,
-                amount.0,
-                token_id
-            );
+            events::emit::withdraw_failed(&account_id, amount.0, &token_id);
             self.internal_set_account(&account_id, account);
+        } else {
+            events::emit::withdraw_succeeded(&account_id, amount.0, &token_id);
         }
         promise_success
     }

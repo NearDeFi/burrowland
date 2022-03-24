@@ -84,8 +84,17 @@ impl Contract {
             .unwrap_or_default();
         booster_staking.unlock_timestamp = new_unlock_timestamp_ns;
         booster_staking.staked_booster_amount += amount;
-        booster_staking.x_booster_amount +=
-            compute_x_booster_amount(&config, amount, new_duration_ns);
+        let extra_x_booster_amount = compute_x_booster_amount(&config, amount, new_duration_ns);
+        booster_staking.x_booster_amount += extra_x_booster_amount;
+
+        events::emit::booster_stake(
+            &account_id,
+            amount,
+            duration,
+            extra_x_booster_amount,
+            &booster_staking,
+        );
+
         account.booster_staking.replace(booster_staking);
 
         account
@@ -119,6 +128,8 @@ impl Contract {
             &config.booster_token_id,
             booster_staking.staked_booster_amount,
         );
+
+        events::emit::booster_unstake(&account_id, &booster_staking);
 
         account
             .affected_farms
