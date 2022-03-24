@@ -7,74 +7,8 @@ impl Contract {
     #[private]
     #[init(ignore_state)]
     pub fn migrate_state() -> Self {
-        #[derive(BorshDeserialize, BorshSerialize)]
-        pub struct OldConfig {
-            pub oracle_account_id: AccountId,
-            pub owner_id: AccountId,
-            pub booster_token_id: TokenId,
-            pub booster_decimals: u8,
-            pub max_num_assets: u32,
-            pub maximum_recency_duration_sec: DurationSec,
-            pub maximum_staleness_duration_sec: DurationSec,
-            pub minimum_staking_duration_sec: DurationSec,
-            pub maximum_staking_duration_sec: DurationSec,
-            pub x_booster_multiplier_at_maximum_staking_duration: u32,
-        }
-
-        #[derive(BorshDeserialize)]
-        pub struct OldContract {
-            pub accounts: UnorderedMap<AccountId, VAccount>,
-            pub storage: LookupMap<AccountId, VStorage>,
-            pub assets: LookupMap<TokenId, VAsset>,
-            pub asset_farms: LookupMap<FarmId, VAssetFarm>,
-            pub asset_ids: UnorderedSet<TokenId>,
-            pub config: LazyOption<OldConfig>,
-        }
-
-        let OldContract {
-            accounts,
-            storage,
-            assets,
-            asset_farms,
-            asset_ids,
-            config: old_config,
-        } = env::state_read().expect("Failed to read old contract state");
-
-        let OldConfig {
-            oracle_account_id,
-            owner_id,
-            booster_token_id,
-            booster_decimals,
-            max_num_assets,
-            maximum_recency_duration_sec,
-            maximum_staleness_duration_sec,
-            minimum_staking_duration_sec,
-            maximum_staking_duration_sec,
-            x_booster_multiplier_at_maximum_staking_duration,
-        } = old_config.get().expect("Failed to read old config");
-
-        let new_config = Config {
-            oracle_account_id,
-            owner_id,
-            booster_token_id,
-            booster_decimals,
-            max_num_assets,
-            maximum_recency_duration_sec,
-            maximum_staleness_duration_sec,
-            minimum_staking_duration_sec,
-            maximum_staking_duration_sec,
-            x_booster_multiplier_at_maximum_staking_duration,
-            force_closing_enabled: true,
-        };
-
-        Self {
-            accounts,
-            storage,
-            assets,
-            asset_farms,
-            asset_ids,
-            config: LazyOption::new(StorageKey::Config, Some(&new_config)),
-        }
+        let contract: Self = env::state_read().unwrap();
+        contract
     }
 
     /// Returns semver of this contract.

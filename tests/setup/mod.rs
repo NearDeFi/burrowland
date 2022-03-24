@@ -22,7 +22,7 @@ near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
     BURROWLAND_WASM_BYTES => "res/burrowland.wasm",
     BURROWLAND_0_3_0_WASM_BYTES => "res/burrowland_0.3.0.wasm",
     BURROWLAND_0_4_0_WASM_BYTES => "res/burrowland_0.4.0.wasm",
-    BURROWLAND_0_4_1_WASM_BYTES => "res/burrowland_0.4.1.wasm",
+    BURROWLAND_PREVIOUS_WASM_BYTES => "res/burrowland_0.5.1.wasm",
     TEST_ORACLE_WASM_BYTES => "res/test_oracle.wasm",
 
     FUNGIBLE_TOKEN_WASM_BYTES => "res/fungible_token.wasm",
@@ -37,7 +37,7 @@ pub fn burrowland_0_4_0_wasm_bytes() -> &'static [u8] {
 }
 
 pub fn burrowland_previous_wasm_bytes() -> &'static [u8] {
-    &BURROWLAND_0_4_1_WASM_BYTES
+    &BURROWLAND_PREVIOUS_WASM_BYTES
 }
 
 pub fn burrowland_wasm_bytes() -> &'static [u8] {
