@@ -57,6 +57,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 #[derive(BorshSerialize, BorshStorageKey)]
+#[allow(unused)]
 enum StorageKey {
     Accounts,
     AccountAssets { account_id: AccountId },
@@ -78,6 +79,8 @@ pub struct Contract {
     pub asset_farms: LookupMap<FarmId, VAssetFarm>,
     pub asset_ids: UnorderedSet<TokenId>,
     pub config: LazyOption<Config>,
+    /// The last recorded price info from the oracle. It's used for Net TVL farm computation.
+    pub last_prices: HashMap<TokenId, Price>,
 }
 
 #[near_bindgen]
@@ -93,6 +96,7 @@ impl Contract {
             asset_farms: LookupMap::new(StorageKey::AssetFarms),
             asset_ids: UnorderedSet::new(StorageKey::AssetIds),
             config: LazyOption::new(StorageKey::Config, Some(&config)),
+            last_prices: HashMap::new(),
         }
     }
 }

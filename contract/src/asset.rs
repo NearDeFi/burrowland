@@ -26,12 +26,14 @@ pub struct Asset {
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub enum VAsset {
+    V0(AssetV0),
     Current(Asset),
 }
 
 impl From<VAsset> for Asset {
     fn from(v: VAsset) -> Self {
         match v {
+            VAsset::V0(v) => v.into(),
             VAsset::Current(c) => c,
         }
     }

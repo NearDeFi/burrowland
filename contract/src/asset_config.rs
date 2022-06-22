@@ -60,6 +60,11 @@ pub struct AssetConfig {
     pub can_use_as_collateral: bool,
     /// Whether this assets can be borrowed.
     pub can_borrow: bool,
+    /// NetTvl asset multiplier (multiplied by 10000).
+    /// Default multiplier is 10000, means the asset weight shouldn't be changed.
+    /// Example: a multiplier of 5000 means the asset in TVL should only counted as 50%, e.g. if an
+    /// asset is not useful for borrowing, but only useful as a collateral.
+    pub net_tvl_multiplier: u32,
 }
 
 impl AssetConfig {
@@ -114,6 +119,7 @@ mod tests {
             can_withdraw: true,
             can_use_as_collateral: true,
             can_borrow: true,
+            net_tvl_multiplier: 10000,
         }
     }
 

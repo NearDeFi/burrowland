@@ -32,3 +32,16 @@ impl From<PriceData> for Prices {
         }
     }
 }
+
+impl Contract {
+    /// Updates last prices in the contract.
+    /// The prices will only be stored if the old price for the token is already present or the
+    /// asset with this token ID exists.
+    pub fn internal_set_prices(&mut self, prices: &Prices) {
+        for (token_id, price) in prices.prices.iter() {
+            if self.last_prices.contains_key(&token_id) || self.assets.contains_key(&token_id) {
+                self.last_prices.insert(token_id.clone(), price.clone());
+            }
+        }
+    }
+}

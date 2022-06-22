@@ -58,9 +58,10 @@ impl Contract {
         let farms = account
             .farms
             .keys()
+            .cloned()
             .map(|farm_id| {
                 // Remove already active farm.
-                potential_farms.retain(|f| f != &farm_id);
+                potential_farms.remove(&farm_id);
                 let mut asset_farm = self.internal_unwrap_asset_farm(&farm_id, true);
                 let (account_farm, new_rewards, inactive_rewards) =
                     self.internal_account_farm_claim(&account, &farm_id, &asset_farm);
@@ -104,25 +105,20 @@ impl Contract {
             .any(|farm_id| self.asset_farms.contains_key(&farm_id));
         AccountDetailedView {
             account_id: account.account_id,
-            supplied: unordered_map_pagination(&account.supplied, None, None)
+            supplied: account
+                .supplied
                 .into_iter()
-                .map(|(token_id, AccountAsset { shares })| {
-                    self.get_asset_view(token_id, shares, false)
-                })
+                .map(|(token_id, shares)| self.get_asset_view(token_id, shares, false))
                 .collect(),
             collateral: account
                 .collateral
                 .into_iter()
-                .map(|CollateralAsset { token_id, shares }| {
-                    self.get_asset_view(token_id, shares, false)
-                })
+                .map(|(token_id, shares)| self.get_asset_view(token_id, shares, false))
                 .collect(),
             borrowed: account
                 .borrowed
                 .into_iter()
-                .map(|BorrowedAsset { token_id, shares }| {
-                    self.get_asset_view(token_id, shares, true)
-                })
+                .map(|(token_id, shares)| self.get_asset_view(token_id, shares, true))
                 .collect(),
             farms,
             has_non_farmed_assets,

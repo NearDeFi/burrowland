@@ -198,24 +198,24 @@ impl Contract {
             .collect()
     }
 
-    /// Returns a list of pairs (farm ID, asset farm) from a given index up to a given limit.
-    ///
-    /// Note, the number of returned elements may be twice larger than the limit, due to the
-    /// pagination implementation. To continue to the next page use `from_index + limit`.
+    /// Deprecated. Returns all farms using `get_asset_farms_all()`.
+    #[allow(unused)]
     pub fn get_asset_farms_paged(
         &self,
         from_index: Option<u64>,
         limit: Option<u64>,
     ) -> Vec<(FarmId, AssetFarm)> {
-        let keys = self.asset_ids.as_vector();
-        let from_index = from_index.unwrap_or(0);
-        let limit = limit.unwrap_or(keys.len());
+        self.get_asset_farms_all()
+    }
+
+    /// Returns full list of pairs (farm ID, asset farm).
+    pub fn get_asset_farms_all(&self) -> Vec<(FarmId, AssetFarm)> {
         let mut farm_ids = vec![];
-        for index in from_index..std::cmp::min(keys.len(), limit) {
-            let token_id = keys.get(index).unwrap();
+        for token_id in self.asset_ids.iter() {
             farm_ids.push(FarmId::Supplied(token_id.clone()));
             farm_ids.push(FarmId::Borrowed(token_id));
         }
+        farm_ids.push(FarmId::NetTvl);
         self.get_asset_farms(farm_ids)
     }
 }
