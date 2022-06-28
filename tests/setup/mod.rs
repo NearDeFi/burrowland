@@ -10,11 +10,11 @@ use near_sdk_sim::{
     deploy, init_simulator, to_yocto, ContractAccount, ExecutionResult, UserAccount,
 };
 
-use contract::FarmId;
 pub use contract::{
     AccountDetailedView, Action, AssetAmount, AssetConfig, AssetDetailedView, Config,
     ContractContract as BurrowlandContract, PriceReceiverMsg, TokenReceiverMsg,
 };
+use contract::{AssetView, FarmId};
 use near_sdk_sim::runtime::RuntimeStandalone;
 use test_oracle::ContractContract as OracleContract;
 
@@ -22,7 +22,7 @@ near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
     BURROWLAND_WASM_BYTES => "res/burrowland.wasm",
     BURROWLAND_0_3_0_WASM_BYTES => "res/burrowland_0.3.0.wasm",
     BURROWLAND_0_4_0_WASM_BYTES => "res/burrowland_0.4.0.wasm",
-    BURROWLAND_PREVIOUS_WASM_BYTES => "res/burrowland_0.5.1.wasm",
+    BURROWLAND_PREVIOUS_WASM_BYTES => "res/burrowland_0.6.0.wasm",
     TEST_ORACLE_WASM_BYTES => "res/test_oracle.wasm",
 
     FUNGIBLE_TOKEN_WASM_BYTES => "res/fungible_token.wasm",
@@ -245,6 +245,7 @@ impl Env {
                         can_withdraw: true,
                         can_use_as_collateral: false,
                         can_borrow: false,
+                        net_tvl_multiplier: 10000,
                     },
                 ),
                 DEFAULT_GAS.0,
@@ -267,6 +268,7 @@ impl Env {
                         can_withdraw: true,
                         can_use_as_collateral: true,
                         can_borrow: true,
+                        net_tvl_multiplier: 10000,
                     },
                 ),
                 DEFAULT_GAS.0,
@@ -289,6 +291,7 @@ impl Env {
                         can_withdraw: true,
                         can_use_as_collateral: true,
                         can_borrow: true,
+                        net_tvl_multiplier: 10000,
                     },
                 ),
                 DEFAULT_GAS.0,
@@ -311,6 +314,7 @@ impl Env {
                         can_withdraw: true,
                         can_use_as_collateral: true,
                         can_borrow: true,
+                        net_tvl_multiplier: 10000,
                     },
                 ),
                 DEFAULT_GAS.0,
@@ -333,6 +337,7 @@ impl Env {
                         can_withdraw: true,
                         can_use_as_collateral: true,
                         can_borrow: true,
+                        net_tvl_multiplier: 10000,
                     },
                 ),
                 DEFAULT_GAS.0,
@@ -355,6 +360,7 @@ impl Env {
                         can_withdraw: true,
                         can_use_as_collateral: true,
                         can_borrow: true,
+                        net_tvl_multiplier: 10000,
                     },
                 ),
                 DEFAULT_GAS.0,
@@ -617,7 +623,7 @@ impl Env {
 
     pub fn account_farm_claim_all(&self, user: &UserAccount) -> ExecutionResult {
         user.function_call(
-            self.contract.contract.account_farm_claim_all(),
+            self.contract.contract.account_farm_claim_all(None),
             MAX_GAS.0,
             0,
         )
@@ -785,4 +791,27 @@ pub fn get_logs(runtime: &RuntimeStandalone) -> Vec<String> {
         .iter()
         .flat_map(|hash| runtime.outcome(hash).map(|o| o.logs).unwrap_or_default())
         .collect()
+}
+
+pub fn find_asset<'a>(assets: &'a [AssetView], token_id: &AccountId) -> &'a AssetView {
+    assets
+        .iter()
+        .find(|e| &e.token_id == token_id)
+        .expect("Missing asset")
+}
+
+pub fn assert_balances(actual: &[AssetView], expected: &[AssetView]) {
+    assert_eq!(actual.len(), expected.len());
+    for asset in actual {
+        assert_eq!(asset.balance, find_asset(expected, &asset.token_id).balance);
+    }
+}
+
+pub fn av(token_id: AccountId, balance: Balance) -> AssetView {
+    AssetView {
+        token_id,
+        balance,
+        shares: U128(0),
+        apr: Default::default(),
+    }
 }

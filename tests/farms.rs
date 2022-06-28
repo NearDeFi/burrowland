@@ -46,9 +46,7 @@ fn test_farm_supplied() {
     assert_eq!(booster_reward.remaining_rewards, total_reward);
 
     let account = e.get_account(&users.alice);
-    assert_eq!(account.supplied.len(), 1);
-    assert_eq!(account.supplied[0].balance, amount);
-    assert_eq!(account.supplied[0].token_id, tokens.ndai.account_id());
+    assert_balances(&account.supplied, &[av(tokens.ndai.account_id(), amount)]);
 
     assert_eq!(account.farms[0].farm_id, farm_id);
     assert_eq!(
@@ -57,7 +55,9 @@ fn test_farm_supplied() {
     );
     assert_eq!(
         account.farms[0].rewards[0].boosted_shares,
-        account.supplied[0].shares.0,
+        find_asset(&account.supplied, &tokens.ndai.account_id())
+            .shares
+            .0,
     );
     assert_eq!(account.farms[0].rewards[0].unclaimed_amount, 0);
 
@@ -81,14 +81,14 @@ fn test_farm_supplied() {
     );
 
     let account = e.get_account(&users.alice);
-    assert_eq!(account.supplied.len(), 1);
-    assert_eq!(account.supplied[0].balance, amount);
-    assert_eq!(account.supplied[0].token_id, tokens.ndai.account_id());
+    assert_balances(&account.supplied, &[av(tokens.ndai.account_id(), amount)]);
 
     assert_eq!(account.farms[0].farm_id, farm_id);
     assert_eq!(
         account.farms[0].rewards[0].boosted_shares,
-        account.supplied[0].shares.0,
+        find_asset(&account.supplied, &tokens.ndai.account_id())
+            .shares
+            .0,
     );
     assert_eq!(account.farms[0].rewards[0].unclaimed_amount, farmed_amount);
 
@@ -110,16 +110,20 @@ fn test_farm_supplied() {
     );
 
     let account = e.get_account(&users.alice);
-    assert_eq!(account.supplied.len(), 2);
-    assert_eq!(account.supplied[0].balance, amount);
-    assert_eq!(account.supplied[0].token_id, tokens.ndai.account_id());
-    assert_eq!(account.supplied[1].balance, farmed_amount);
-    assert_eq!(account.supplied[1].token_id, e.booster_token.account_id());
+    assert_balances(
+        &account.supplied,
+        &[
+            av(tokens.ndai.account_id(), amount),
+            av(e.booster_token.account_id(), farmed_amount),
+        ],
+    );
 
     assert_eq!(account.farms[0].farm_id, farm_id);
     assert_eq!(
         account.farms[0].rewards[0].boosted_shares,
-        account.supplied[0].shares.0,
+        find_asset(&account.supplied, &tokens.ndai.account_id())
+            .shares
+            .0,
     );
     assert_eq!(account.farms[0].rewards[0].unclaimed_amount, 0);
 
@@ -141,16 +145,20 @@ fn test_farm_supplied() {
     );
 
     let account = e.get_account(&users.alice);
-    assert_eq!(account.supplied.len(), 2);
-    assert_eq!(account.supplied[0].balance, amount);
-    assert_eq!(account.supplied[0].token_id, tokens.ndai.account_id());
-    assert_eq!(account.supplied[1].balance, farmed_amount);
-    assert_eq!(account.supplied[1].token_id, e.booster_token.account_id());
+    assert_balances(
+        &account.supplied,
+        &[
+            av(tokens.ndai.account_id(), amount),
+            av(e.booster_token.account_id(), farmed_amount),
+        ],
+    );
 
     assert_eq!(account.farms[0].farm_id, farm_id);
     assert_eq!(
         account.farms[0].rewards[0].boosted_shares,
-        account.supplied[0].shares.0,
+        find_asset(&account.supplied, &tokens.ndai.account_id())
+            .shares
+            .0,
     );
     assert_eq!(
         account.farms[0].rewards[0].unclaimed_amount,
@@ -169,16 +177,20 @@ fn test_farm_supplied() {
     assert_eq!(booster_reward.remaining_rewards, 0);
 
     let account = e.get_account(&users.alice);
-    assert_eq!(account.supplied.len(), 2);
-    assert_eq!(account.supplied[0].balance, amount);
-    assert_eq!(account.supplied[0].token_id, tokens.ndai.account_id());
-    assert_eq!(account.supplied[1].balance, farmed_amount);
-    assert_eq!(account.supplied[1].token_id, e.booster_token.account_id());
+    assert_balances(
+        &account.supplied,
+        &[
+            av(tokens.ndai.account_id(), amount),
+            av(e.booster_token.account_id(), farmed_amount),
+        ],
+    );
 
     assert_eq!(account.farms[0].farm_id, farm_id);
     assert_eq!(
         account.farms[0].rewards[0].boosted_shares,
-        account.supplied[0].shares.0,
+        find_asset(&account.supplied, &tokens.ndai.account_id())
+            .shares
+            .0,
     );
     assert_eq!(
         account.farms[0].rewards[0].unclaimed_amount,
@@ -198,11 +210,13 @@ fn test_farm_supplied() {
         .is_none());
 
     let account = e.get_account(&users.alice);
-    assert_eq!(account.supplied.len(), 2);
-    assert_eq!(account.supplied[0].balance, amount);
-    assert_eq!(account.supplied[0].token_id, tokens.ndai.account_id());
-    assert_eq!(account.supplied[1].balance, total_reward);
-    assert_eq!(account.supplied[1].token_id, e.booster_token.account_id());
+    assert_balances(
+        &account.supplied,
+        &[
+            av(tokens.ndai.account_id(), amount),
+            av(e.booster_token.account_id(), total_reward),
+        ],
+    );
 
     assert_eq!(account.farms[0].farm_id, farm_id);
     assert!(account.farms[0].rewards.is_empty());
@@ -284,9 +298,7 @@ fn test_farm_supplied_xbooster() {
     assert_eq!(booster_reward.boosted_shares, asset.supplied.shares.0 * 2);
 
     let account = e.get_account(&users.alice);
-    assert_eq!(account.supplied.len(), 1);
-    assert_eq!(account.supplied[0].balance, amount);
-    assert_eq!(account.supplied[0].token_id, tokens.ndai.account_id());
+    assert_balances(&account.supplied, &[av(tokens.ndai.account_id(), amount)]);
 
     let booster_staking = account.booster_staking.unwrap();
     assert_eq!(booster_staking.staked_booster_amount, booster_amount);
@@ -295,7 +307,10 @@ fn test_farm_supplied_xbooster() {
     // The amount of boosted shares should be 2X due to the log base.
     assert_eq!(
         account.farms[0].rewards[0].boosted_shares,
-        account.supplied[0].shares.0 * 2,
+        find_asset(&account.supplied, &tokens.ndai.account_id())
+            .shares
+            .0
+            * 2,
     );
     assert_eq!(account.farms[0].rewards[0].unclaimed_amount, 0);
 
@@ -340,16 +355,21 @@ fn test_farm_supplied_xbooster() {
     assert_eq!(booster_reward.boosted_shares, asset.supplied.shares.0 * 3);
 
     let account = e.get_account(&users.alice);
-    assert_eq!(account.supplied.len(), 2);
-    assert_eq!(account.supplied[0].balance, amount);
-    assert_eq!(account.supplied[0].token_id, tokens.ndai.account_id());
-    assert_eq!(account.supplied[1].balance, farmed_amount);
-    assert_eq!(account.supplied[1].token_id, tokens.nusdc.account_id());
+    assert_balances(
+        &account.supplied,
+        &[
+            av(tokens.ndai.account_id(), amount),
+            av(tokens.nusdc.account_id(), farmed_amount),
+        ],
+    );
 
     // The boosted amount should 3X because the xBooster is 400.
     assert_eq!(
         account.farms[0].rewards[0].boosted_shares,
-        account.supplied[0].shares.0 * 3,
+        find_asset(&account.supplied, &tokens.ndai.account_id())
+            .shares
+            .0
+            * 3,
     );
     assert_eq!(account.farms[0].rewards[0].unclaimed_amount, 0);
     let booster_staking = account.booster_staking.unwrap();
@@ -405,7 +425,10 @@ fn test_farm_supplied_xbooster_unstake() {
     // The amount of boosted shares should be 2X due to the log base.
     assert_eq!(
         account.farms[0].rewards[0].boosted_shares,
-        account.supplied[0].shares.0 * 2,
+        find_asset(&account.supplied, &tokens.ndai.account_id())
+            .shares
+            .0
+            * 2,
     );
     assert_eq!(account.farms[0].rewards[0].unclaimed_amount, 0);
 
@@ -446,17 +469,20 @@ fn test_farm_supplied_xbooster_unstake() {
     assert_eq!(booster_reward.boosted_shares, asset.supplied.shares.0);
 
     let account = e.get_account(&users.alice);
-    assert_eq!(account.supplied.len(), 3);
-    assert_eq!(account.supplied[0].balance, amount);
-    assert_eq!(account.supplied[0].token_id, tokens.ndai.account_id());
-    assert_eq!(account.supplied[1].balance, booster_amount);
-    assert_eq!(account.supplied[1].token_id, e.booster_token.account_id());
-    assert_eq!(account.supplied[2].balance, farmed_amount);
-    assert_eq!(account.supplied[2].token_id, tokens.nusdc.account_id());
+    assert_balances(
+        &account.supplied,
+        &[
+            av(tokens.ndai.account_id(), amount),
+            av(e.booster_token.account_id(), booster_amount),
+            av(tokens.nusdc.account_id(), farmed_amount),
+        ],
+    );
 
     assert_eq!(
         account.farms[0].rewards[0].boosted_shares,
-        account.supplied[0].shares.0,
+        find_asset(&account.supplied, &tokens.ndai.account_id())
+            .shares
+            .0,
     );
     assert_eq!(account.farms[0].rewards[0].unclaimed_amount, 0);
     assert!(account.booster_staking.is_none());
@@ -520,7 +546,10 @@ fn test_farm_supplied_two_users() {
 
     assert_eq!(
         account.farms[0].rewards[0].boosted_shares,
-        account.supplied[0].shares.0 * 2,
+        find_asset(&account.supplied, &tokens.ndai.account_id())
+            .shares
+            .0
+            * 2,
     );
     assert_eq!(account.farms[0].rewards[0].unclaimed_amount, 0);
 
@@ -528,7 +557,10 @@ fn test_farm_supplied_two_users() {
 
     assert_eq!(
         account.farms[0].rewards[0].boosted_shares,
-        account.supplied[0].shares.0 * 3,
+        find_asset(&account.supplied, &tokens.ndai.account_id())
+            .shares
+            .0
+            * 3,
     );
     assert_eq!(account.farms[0].rewards[0].unclaimed_amount, 0);
 
@@ -585,15 +617,20 @@ fn test_farm_supplied_two_users() {
     assert_eq!(booster_reward.boosted_shares, asset.supplied.shares.0 * 3);
 
     let account = e.get_account(&users.alice);
-    assert_eq!(account.supplied.len(), 2);
-    assert_eq!(account.supplied[0].balance, amount);
-    assert_eq!(account.supplied[0].token_id, tokens.ndai.account_id());
-    assert_eq!(account.supplied[1].balance, farmed_amount * 2 / 5);
-    assert_eq!(account.supplied[1].token_id, tokens.nusdc.account_id());
+    assert_balances(
+        &account.supplied,
+        &[
+            av(tokens.ndai.account_id(), amount),
+            av(tokens.nusdc.account_id(), farmed_amount * 2 / 5),
+        ],
+    );
 
     assert_eq!(
         account.farms[0].rewards[0].boosted_shares,
-        account.supplied[0].shares.0 * 3,
+        find_asset(&account.supplied, &tokens.ndai.account_id())
+            .shares
+            .0
+            * 3,
     );
     assert_eq!(account.farms[0].rewards[0].unclaimed_amount, 0);
 
