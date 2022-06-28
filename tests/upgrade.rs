@@ -73,6 +73,8 @@ fn test_upgrade_with_private_key() {
     assert_eq!(version, "0.4.0");
 }
 
+/// Note, the following test has logic specific to verify upgrade to 0.7.0 that modifies internal
+/// account storage, so the available storage should increase.
 #[test]
 fn test_upgrade_by_owner() {
     let (e, tokens, users) = basic_setup_with_contract(burrowland_previous_wasm_bytes());
@@ -96,6 +98,12 @@ fn test_upgrade_by_owner() {
         &amount.to_string()
     );
 
+    let account = e.get_account(&users.alice);
+    assert_eq!(
+        find_asset(&account.supplied, &tokens.wnear.account_id()).balance,
+        amount
+    );
+
     let version: String = e
         .near
         .view_method_call(e.contract.contract.get_version())
@@ -106,16 +114,51 @@ fn test_upgrade_by_owner() {
     e.deploy_contract_by_owner(burrowland_wasm_bytes())
         .assert_success();
 
-    let asset = e.get_asset(&tokens.wnear);
-    assert_eq!(asset.supplied.balance, amount);
-    assert_eq!(asset.config.net_tvl_multiplier, 10000);
-
     let version: String = e
         .near
         .view_method_call(e.contract.contract.get_version())
         .unwrap_json();
 
     assert_eq!(version, LATEST_VERSION);
+
+    let asset = e.get_asset(&tokens.wnear);
+    assert_eq!(asset.supplied.balance, amount);
+    assert_eq!(asset.config.net_tvl_multiplier, 10000);
+
+    let account = e.get_account(&users.alice);
+    assert_eq!(
+        find_asset(&account.supplied, &tokens.wnear.account_id()).balance,
+        amount
+    );
+
+    let before_action_storage_balance = e.debug_storage_balance_of(&users.alice).unwrap();
+
+    e.contract_ft_transfer_call(&tokens.wnear, &users.alice, amount, "")
+        .assert_success();
+
+    let account = e.get_account(&users.alice);
+    assert_eq!(
+        find_asset(&account.supplied, &tokens.wnear.account_id()).balance,
+        amount * 2
+    );
+
+    let after_action_storage_balance = e.debug_storage_balance_of(&users.alice).unwrap();
+    assert!(before_action_storage_balance.available.0 < after_action_storage_balance.available.0);
+
+    e.contract_ft_transfer_call(&tokens.wnear, &users.alice, amount, "")
+        .assert_success();
+
+    let account = e.get_account(&users.alice);
+    assert_eq!(
+        find_asset(&account.supplied, &tokens.wnear.account_id()).balance,
+        amount * 3
+    );
+
+    let after_two_actions_storage_balance = e.debug_storage_balance_of(&users.alice).unwrap();
+    assert_eq!(
+        after_action_storage_balance.available.0,
+        after_two_actions_storage_balance.available.0
+    );
 }
 
 #[test]

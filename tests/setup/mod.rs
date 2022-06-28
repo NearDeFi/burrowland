@@ -2,6 +2,7 @@
 
 use common::{AssetOptionalPrice, DurationSec, Price, PriceData, ONE_YOCTO};
 use near_contract_standards::fungible_token::metadata::{FungibleTokenMetadata, FT_METADATA_SPEC};
+use near_contract_standards::storage_management::StorageBalance;
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
 use near_sdk::{env, serde_json, AccountId, Balance, Gas, Timestamp};
@@ -458,6 +459,22 @@ impl Env {
             .view_method_call(self.contract.contract.get_account(user.account_id()))
             .unwrap_json();
         account.unwrap()
+    }
+
+    pub fn storage_balance_of(&self, user: &UserAccount) -> Option<StorageBalance> {
+        self.near
+            .view_method_call(self.contract.contract.storage_balance_of(user.account_id()))
+            .unwrap_json()
+    }
+
+    pub fn debug_storage_balance_of(&self, user: &UserAccount) -> Option<StorageBalance> {
+        self.near
+            .view_method_call(
+                self.contract
+                    .contract
+                    .debug_storage_balance_of(user.account_id()),
+            )
+            .unwrap_json()
     }
 
     pub fn supply_to_collateral(
