@@ -129,6 +129,7 @@ impl Account {
     /// Returns all assets that can be potentially farmed.
     pub fn get_all_potential_farms(&self) -> HashSet<FarmId> {
         let mut potential_farms = HashSet::new();
+        potential_farms.insert(FarmId::NetTvl);
         potential_farms.extend(self.supplied.keys().cloned().map(FarmId::Supplied));
         potential_farms.extend(self.collateral.keys().cloned().map(FarmId::Supplied));
         potential_farms.extend(self.borrowed.keys().cloned().map(FarmId::Borrowed));
