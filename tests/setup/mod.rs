@@ -15,7 +15,7 @@ pub use contract::{
     AccountDetailedView, Action, AssetAmount, AssetConfig, AssetDetailedView, Config,
     ContractContract as BurrowlandContract, PriceReceiverMsg, TokenReceiverMsg,
 };
-use contract::{AssetView, FarmId};
+use contract::{AssetFarmView, AssetView, FarmId};
 use near_sdk_sim::runtime::RuntimeStandalone;
 use test_oracle::ContractContract as OracleContract;
 
@@ -451,6 +451,18 @@ impl Env {
             .view_method_call(self.contract.contract.get_asset(token.account_id()))
             .unwrap_json();
         asset.unwrap()
+    }
+
+    pub fn get_asset_farm(&self, farm_id: FarmId) -> AssetFarmView {
+        let asset_farm: Option<serde_json::value::Value> = self
+            .near
+            .view_method_call(self.contract.contract.get_asset_farm(farm_id.clone()))
+            .unwrap_json();
+        let asset_farm = asset_farm.unwrap();
+        AssetFarmView {
+            farm_id,
+            rewards: serde_json::from_value(asset_farm["rewards"].clone()).unwrap(),
+        }
     }
 
     pub fn get_account(&self, user: &UserAccount) -> AccountDetailedView {

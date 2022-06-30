@@ -669,3 +669,73 @@ fn test_farm_supplied_two_users() {
         farmed_amount * 3 / 5 + reward_per_day * 2 / 2
     );
 }
+
+#[test]
+fn test_farm_net_tvl() {
+    let (e, tokens, users) = basic_setup();
+
+    let reward_per_day = d(100, 18);
+    let total_reward = d(3000, 18);
+
+    let farm_id = FarmId::NetTvl;
+    e.add_farm(
+        farm_id.clone(),
+        &e.booster_token,
+        reward_per_day,
+        d(100, 18),
+        total_reward,
+    );
+
+    let asset_farm = e.get_asset_farm(farm_id.clone());
+    let booster_reward = asset_farm
+        .rewards
+        .get(&e.booster_token.account_id())
+        .cloned()
+        .unwrap();
+    assert_eq!(booster_reward.remaining_rewards, total_reward);
+
+    let amount = d(100, 18);
+    e.supply_to_collateral(&users.alice, &tokens.ndai, amount)
+        .assert_success();
+    // Borrow 1 NEAR
+    let borrow_amount = d(1, 24);
+    e.borrow_and_withdraw(
+        &users.alice,
+        &tokens.wnear,
+        price_data(&tokens, Some(100000), None),
+        borrow_amount,
+    )
+    .assert_success();
+
+    let asset = e.get_asset(&e.booster_token);
+    assert_eq!(asset.supplied.balance, 0);
+
+    let account = e.get_account(&users.alice);
+    assert_eq!(account.farms.len(), 1);
+    assert_eq!(account.farms[0].farm_id, farm_id);
+    assert_eq!(
+        account.farms[0].rewards[0].reward_token_id,
+        e.booster_token.account_id()
+    );
+    // The account should have 90$ of Net TVL. $100 from dai and 10$ wNEAR borrowed.
+    assert_eq!(account.farms[0].rewards[0].boosted_shares, d(90, 18));
+    assert_eq!(account.farms[0].rewards[0].unclaimed_amount, 0);
+
+    e.skip_time(ONE_DAY_SEC * 3);
+
+    let farmed_amount = reward_per_day * 3;
+
+    let asset = e.get_asset(&e.booster_token);
+    assert_eq!(asset.supplied.balance, 0);
+
+    let asset_farm = e.get_asset_farm(farm_id.clone());
+    let booster_reward = asset_farm
+        .rewards
+        .get(&e.booster_token.account_id())
+        .cloned()
+        .unwrap();
+    assert_eq!(
+        booster_reward.remaining_rewards,
+        total_reward - farmed_amount
+    );
+}
