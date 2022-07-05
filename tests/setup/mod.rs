@@ -657,6 +657,19 @@ impl Env {
             0,
         )
     }
+    pub fn account_farm_claim_all_on_behalf(
+        &self,
+        caller: &UserAccount,
+        user: &UserAccount,
+    ) -> ExecutionResult {
+        caller.function_call(
+            self.contract
+                .contract
+                .account_farm_claim_all(Some(user.account_id())),
+            MAX_GAS.0,
+            0,
+        )
+    }
 }
 
 pub fn init_token(e: &Env, token_account_id: &AccountId, decimals: u8) -> UserAccount {
