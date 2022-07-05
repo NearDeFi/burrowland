@@ -1,7 +1,9 @@
 mod setup;
 
 use crate::setup::*;
+use common::ONE_YOCTO;
 use contract::FarmId;
+use near_sdk::json_types::U128;
 
 #[test]
 fn test_farm_supplied() {
@@ -1099,4 +1101,78 @@ fn test_farm_net_tvl_bad_debt() {
         .unwrap();
     // Bob and Alice
     assert_eq!(reward.boosted_shares, d(128, 18));
+}
+
+#[test]
+fn test_farm_net_tvl_multipliers() {
+    let (e, tokens, users) = basic_setup();
+
+    let reward_per_day = d(100, 18);
+    let total_reward = d(3000, 18);
+
+    let farm_id = FarmId::NetTvl;
+    e.add_farm(
+        farm_id.clone(),
+        &tokens.ndai,
+        reward_per_day,
+        d(100, 18),
+        total_reward,
+    );
+
+    let asset_farm = e.get_asset_farm(farm_id.clone());
+    let reward = asset_farm
+        .rewards
+        .get(&tokens.ndai.account_id())
+        .cloned()
+        .unwrap();
+    assert_eq!(reward.remaining_rewards, total_reward);
+
+    e.owner
+        .function_call(
+            e.contract.contract.update_asset(
+                tokens.wnear.account_id(),
+                AssetConfig {
+                    reserve_ratio: 2500,
+                    target_utilization: 8000,
+                    target_utilization_rate: U128(1000000000003593629036885046),
+                    max_utilization_rate: U128(1000000000039724853136740579),
+                    volatility_ratio: 6000,
+                    extra_decimals: 0,
+                    can_deposit: true,
+                    can_withdraw: true,
+                    can_use_as_collateral: true,
+                    can_borrow: true,
+                    net_tvl_multiplier: 8000,
+                },
+            ),
+            DEFAULT_GAS.0,
+            ONE_YOCTO,
+        )
+        .assert_success();
+
+    let amount = d(100, 18);
+    e.supply_to_collateral(&users.alice, &tokens.ndai, amount)
+        .assert_success();
+
+    let borrow_amount = d(4, 24);
+    e.borrow_and_withdraw(
+        &users.alice,
+        &tokens.wnear,
+        price_data(&tokens, Some(100000), None),
+        borrow_amount,
+    )
+    .assert_success();
+
+    let account = e.get_account(&users.alice);
+    // 100 - 4 * 10 * 0.8
+    assert_eq!(account.farms[0].rewards[0].boosted_shares, d(68, 18));
+
+    // Deposit 10 wNEAR.
+    let amount = d(10, 24);
+    e.contract_ft_transfer_call(&tokens.wnear, &users.alice, amount, "")
+        .assert_success();
+
+    let account = e.get_account(&users.alice);
+    // 100 - 4 * 10 * 0.8 + 10 * 10 * 0.8
+    assert_eq!(account.farms[0].rewards[0].boosted_shares, d(148, 18));
 }
