@@ -808,14 +808,27 @@ fn test_farm_net_tvl_complex() {
     e.supply_to_collateral(&users.bob, &tokens.nusdc, bob_amount)
         .assert_success();
 
-    let borrow_amount = d(1, 24);
+    let charlie_amount = d(40, 6);
+    e.supply_to_collateral(&users.charlie, &tokens.nusdt, charlie_amount)
+        .assert_success();
+
+    let bob_borrow_amount = d(1, 24);
     e.borrow_and_withdraw(
         &users.alice,
         &tokens.wnear,
         price_data(&tokens, Some(100000), None),
-        borrow_amount,
+        bob_borrow_amount,
     )
     .assert_success();
+
+    let charlie_borrow_amount = d(10, 18);
+    e.borrow_and_withdraw(
+        &users.charlie,
+        &tokens.nusdt,
+        price_data(&tokens, Some(100000), None),
+        charlie_borrow_amount,
+    )
+        .assert_success();
 
     let account = e.get_account(&users.alice);
     assert_eq!(account.farms.len(), 1);
@@ -838,7 +851,7 @@ fn test_farm_net_tvl_complex() {
         .get(&tokens.ndai.account_id())
         .cloned()
         .unwrap();
-    assert_eq!(reward.boosted_shares, d(90, 18));
+    assert_eq!(reward.boosted_shares, d(120, 18));
 
     e.account_farm_claim_all_on_behalf(&users.alice, &users.bob)
         .assert_success();
@@ -854,13 +867,27 @@ fn test_farm_net_tvl_complex() {
     assert_eq!(account.farms[0].rewards[0].boosted_shares, d(30, 18));
     assert_eq!(account.farms[0].rewards[0].unclaimed_amount, 0);
 
+    e.account_farm_claim_all_on_behalf(&users.alice, &users.charlie)
+        .assert_success();
+
+    let account = e.get_account(&users.charlie);
+    assert_eq!(account.farms.len(), 1);
+    assert_eq!(account.farms[0].farm_id, farm_id);
+    assert_eq!(
+        account.farms[0].rewards[0].reward_token_id,
+        tokens.ndai.account_id()
+    );
+    // The account should have 30$ of Net TVL. $40 from usdt deposit - $10 from usdt borrow.
+    assert_eq!(account.farms[0].rewards[0].boosted_shares, d(30, 18));
+    assert_eq!(account.farms[0].rewards[0].unclaimed_amount, 0);
+
     let asset_farm = e.get_asset_farm(farm_id.clone());
     let reward = asset_farm
         .rewards
         .get(&tokens.ndai.account_id())
         .cloned()
         .unwrap();
-    assert_eq!(reward.boosted_shares, d(120, 18));
+    assert_eq!(reward.boosted_shares, d(150, 18));
 
     e.skip_time(ONE_DAY_SEC * 3);
 
@@ -876,12 +903,13 @@ fn test_farm_net_tvl_complex() {
 
     let account = e.get_account(&users.alice);
     assert_eq!(account.farms[0].farm_id, farm_id);
-    assert_eq!(
+    almost_eq(
         account.farms[0].rewards[0].unclaimed_amount,
-        farmed_amount * 90 / 120
+        farmed_amount * 90 / 150,
+        18
     );
 
-    let bobs_farmed_amount = farmed_amount * 30 / 120;
+    let bobs_farmed_amount = farmed_amount * 30 / 150;
     let account = e.get_account(&users.bob);
     assert_eq!(account.farms[0].farm_id, farm_id);
     assert_eq!(
@@ -896,8 +924,8 @@ fn test_farm_net_tvl_complex() {
         &account.supplied,
         &[av(tokens.ndai.account_id(), bobs_farmed_amount)],
     );
-    // 30$ usdc + 75$ ndai from farming rewards.
-    assert_eq!(account.farms[0].rewards[0].boosted_shares, d(30 + 75, 18));
+    // 30$ usdc + 60$ ndai from farming rewards.
+    almost_eq(account.farms[0].rewards[0].boosted_shares, d(30 + 60 , 18), 13);
     assert_eq!(account.farms[0].rewards[0].unclaimed_amount, 0);
 
     let asset_farm = e.get_asset_farm(farm_id.clone());
@@ -906,7 +934,34 @@ fn test_farm_net_tvl_complex() {
         .get(&tokens.ndai.account_id())
         .cloned()
         .unwrap();
-    assert_eq!(reward.boosted_shares, d(120 + 75, 18));
+    almost_eq(reward.boosted_shares, d(120 + 90, 18), 13);
+
+    let charlie_farmed_amount = farmed_amount * 30 / 150;
+    let account = e.get_account(&users.charlie);
+    assert_eq!(account.farms[0].farm_id, farm_id);
+    assert_eq!(
+        account.farms[0].rewards[0].unclaimed_amount,
+        charlie_farmed_amount
+    );
+
+    e.account_farm_claim_all(&users.charlie).assert_success();
+
+    let account = e.get_account(&users.charlie);
+    assert_balances(
+        &account.supplied,
+        &[av(tokens.ndai.account_id(), charlie_farmed_amount)],
+    );
+    // 30$ usdt + 60$ ndai from farming rewards.
+    almost_eq(account.farms[0].rewards[0].boosted_shares, d(30 + 60 , 18), 13);
+    assert_eq!(account.farms[0].rewards[0].unclaimed_amount, 0);
+
+    let asset_farm = e.get_asset_farm(farm_id.clone());
+    let reward = asset_farm
+        .rewards
+        .get(&tokens.ndai.account_id())
+        .cloned()
+        .unwrap();
+    almost_eq(reward.boosted_shares, d(120 + 150, 18), 13);
 }
 
 #[test]

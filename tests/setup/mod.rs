@@ -805,6 +805,14 @@ pub fn basic_setup_with_contract(contract_bytes: &[u8]) -> (Env, Tokens, Users) 
         &users.bob.account_id(),
         d(1, 23),
     );
+    e.mint_tokens(&tokens, &users.charlie);
+    storage_deposit(
+        &users.charlie,
+        &e.contract.account_id(),
+        &users.charlie.account_id(),
+        d(1, 23),
+    );
+
 
     (e, tokens, users)
 }
@@ -856,4 +864,16 @@ pub fn av(token_id: AccountId, balance: Balance) -> AssetView {
         shares: U128(0),
         apr: Default::default(),
     }
+}
+
+pub fn almost_eq(a: u128, b: u128, prec: u32) {
+    let p = 10u128.pow(27 - prec);
+    let ap = (a + p / 2) / p;
+    let bp = (b + p / 2) / p;
+    assert_eq!(
+        ap,
+        bp,
+        "{}",
+        format!("Expected {} to eq {}, with precision {}", a, b, prec)
+    );
 }
