@@ -2,6 +2,7 @@
 
 use common::{AssetOptionalPrice, DurationSec, Price, PriceData, ONE_YOCTO};
 use near_contract_standards::fungible_token::metadata::{FungibleTokenMetadata, FT_METADATA_SPEC};
+use near_contract_standards::storage_management::StorageBalance;
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
 use near_sdk::{env, serde_json, AccountId, Balance, Gas, Timestamp};
@@ -10,11 +11,11 @@ use near_sdk_sim::{
     deploy, init_simulator, to_yocto, ContractAccount, ExecutionResult, UserAccount,
 };
 
-use contract::FarmId;
 pub use contract::{
     AccountDetailedView, Action, AssetAmount, AssetConfig, AssetDetailedView, Config,
     ContractContract as BurrowlandContract, PriceReceiverMsg, TokenReceiverMsg,
 };
+use contract::{AssetFarmView, AssetView, FarmId};
 use near_sdk_sim::runtime::RuntimeStandalone;
 use test_oracle::ContractContract as OracleContract;
 
@@ -22,7 +23,7 @@ near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
     BURROWLAND_WASM_BYTES => "res/burrowland.wasm",
     BURROWLAND_0_3_0_WASM_BYTES => "res/burrowland_0.3.0.wasm",
     BURROWLAND_0_4_0_WASM_BYTES => "res/burrowland_0.4.0.wasm",
-    BURROWLAND_PREVIOUS_WASM_BYTES => "res/burrowland_0.5.1.wasm",
+    BURROWLAND_PREVIOUS_WASM_BYTES => "res/burrowland_0.6.0.wasm",
     TEST_ORACLE_WASM_BYTES => "res/test_oracle.wasm",
 
     FUNGIBLE_TOKEN_WASM_BYTES => "res/fungible_token.wasm",
@@ -245,6 +246,7 @@ impl Env {
                         can_withdraw: true,
                         can_use_as_collateral: false,
                         can_borrow: false,
+                        net_tvl_multiplier: 10000,
                     },
                 ),
                 DEFAULT_GAS.0,
@@ -267,6 +269,7 @@ impl Env {
                         can_withdraw: true,
                         can_use_as_collateral: true,
                         can_borrow: true,
+                        net_tvl_multiplier: 10000,
                     },
                 ),
                 DEFAULT_GAS.0,
@@ -289,6 +292,7 @@ impl Env {
                         can_withdraw: true,
                         can_use_as_collateral: true,
                         can_borrow: true,
+                        net_tvl_multiplier: 10000,
                     },
                 ),
                 DEFAULT_GAS.0,
@@ -311,6 +315,7 @@ impl Env {
                         can_withdraw: true,
                         can_use_as_collateral: true,
                         can_borrow: true,
+                        net_tvl_multiplier: 10000,
                     },
                 ),
                 DEFAULT_GAS.0,
@@ -333,6 +338,7 @@ impl Env {
                         can_withdraw: true,
                         can_use_as_collateral: true,
                         can_borrow: true,
+                        net_tvl_multiplier: 10000,
                     },
                 ),
                 DEFAULT_GAS.0,
@@ -355,6 +361,7 @@ impl Env {
                         can_withdraw: true,
                         can_use_as_collateral: true,
                         can_borrow: true,
+                        net_tvl_multiplier: 10000,
                     },
                 ),
                 DEFAULT_GAS.0,
@@ -446,12 +453,40 @@ impl Env {
         asset.unwrap()
     }
 
+    pub fn get_asset_farm(&self, farm_id: FarmId) -> AssetFarmView {
+        let asset_farm: Option<serde_json::value::Value> = self
+            .near
+            .view_method_call(self.contract.contract.get_asset_farm(farm_id.clone()))
+            .unwrap_json();
+        let asset_farm = asset_farm.unwrap();
+        AssetFarmView {
+            farm_id,
+            rewards: serde_json::from_value(asset_farm["rewards"].clone()).unwrap(),
+        }
+    }
+
     pub fn get_account(&self, user: &UserAccount) -> AccountDetailedView {
         let account: Option<AccountDetailedView> = self
             .near
             .view_method_call(self.contract.contract.get_account(user.account_id()))
             .unwrap_json();
         account.unwrap()
+    }
+
+    pub fn storage_balance_of(&self, user: &UserAccount) -> Option<StorageBalance> {
+        self.near
+            .view_method_call(self.contract.contract.storage_balance_of(user.account_id()))
+            .unwrap_json()
+    }
+
+    pub fn debug_storage_balance_of(&self, user: &UserAccount) -> Option<StorageBalance> {
+        self.near
+            .view_method_call(
+                self.contract
+                    .contract
+                    .debug_storage_balance_of(user.account_id()),
+            )
+            .unwrap_json()
     }
 
     pub fn supply_to_collateral(
@@ -617,7 +652,20 @@ impl Env {
 
     pub fn account_farm_claim_all(&self, user: &UserAccount) -> ExecutionResult {
         user.function_call(
-            self.contract.contract.account_farm_claim_all(),
+            self.contract.contract.account_farm_claim_all(None),
+            MAX_GAS.0,
+            0,
+        )
+    }
+    pub fn account_farm_claim_all_on_behalf(
+        &self,
+        caller: &UserAccount,
+        user: &UserAccount,
+    ) -> ExecutionResult {
+        caller.function_call(
+            self.contract
+                .contract
+                .account_farm_claim_all(Some(user.account_id())),
             MAX_GAS.0,
             0,
         )
@@ -757,6 +805,14 @@ pub fn basic_setup_with_contract(contract_bytes: &[u8]) -> (Env, Tokens, Users) 
         &users.bob.account_id(),
         d(1, 23),
     );
+    e.mint_tokens(&tokens, &users.charlie);
+    storage_deposit(
+        &users.charlie,
+        &e.contract.account_id(),
+        &users.charlie.account_id(),
+        d(1, 23),
+    );
+
 
     (e, tokens, users)
 }
@@ -785,4 +841,39 @@ pub fn get_logs(runtime: &RuntimeStandalone) -> Vec<String> {
         .iter()
         .flat_map(|hash| runtime.outcome(hash).map(|o| o.logs).unwrap_or_default())
         .collect()
+}
+
+pub fn find_asset<'a>(assets: &'a [AssetView], token_id: &AccountId) -> &'a AssetView {
+    assets
+        .iter()
+        .find(|e| &e.token_id == token_id)
+        .expect("Missing asset")
+}
+
+pub fn assert_balances(actual: &[AssetView], expected: &[AssetView]) {
+    assert_eq!(actual.len(), expected.len());
+    for asset in actual {
+        assert_eq!(asset.balance, find_asset(expected, &asset.token_id).balance);
+    }
+}
+
+pub fn av(token_id: AccountId, balance: Balance) -> AssetView {
+    AssetView {
+        token_id,
+        balance,
+        shares: U128(0),
+        apr: Default::default(),
+    }
+}
+
+pub fn almost_eq(a: u128, b: u128, prec: u32) {
+    let p = 10u128.pow(27 - prec);
+    let ap = (a + p / 2) / p;
+    let bp = (b + p / 2) / p;
+    assert_eq!(
+        ap,
+        bp,
+        "{}",
+        format!("Expected {} to eq {}, with precision {}", a, b, prec)
+    );
 }

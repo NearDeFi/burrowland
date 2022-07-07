@@ -151,7 +151,12 @@ impl Contract {
     ) {
         assert_one_yocto();
         self.assert_owner();
-        assert!(self.assets.contains_key(farm_id.get_token_id()));
+        match &farm_id {
+            FarmId::Supplied(token_id) | FarmId::Borrowed(token_id) => {
+                assert!(self.assets.contains_key(token_id));
+            }
+            FarmId::NetTvl => {}
+        };
         let reward_token_id: TokenId = reward_token_id.into();
         let mut reward_asset = self.internal_unwrap_asset(&reward_token_id);
         assert!(

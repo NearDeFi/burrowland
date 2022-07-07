@@ -52,7 +52,9 @@ impl Account {
     }
 
     pub fn internal_get_asset(&self, token_id: &TokenId) -> Option<AccountAsset> {
-        self.supplied.get(token_id).map(|o| o.into())
+        self.supplied
+            .get(token_id)
+            .map(|&shares| AccountAsset { shares })
     }
 
     pub fn internal_get_asset_or_default(&mut self, token_id: &TokenId) -> AccountAsset {
@@ -61,13 +63,11 @@ impl Account {
     }
 
     pub fn internal_set_asset(&mut self, token_id: &TokenId, account_asset: AccountAsset) {
-        self.storage_tracker.start();
         if account_asset.is_empty() {
             self.supplied.remove(token_id);
         } else {
-            self.supplied.insert(token_id, &account_asset.into());
+            self.supplied.insert(token_id.clone(), account_asset.shares);
         }
-        self.storage_tracker.stop();
         self.add_affected_farm(FarmId::Supplied(token_id.clone()));
     }
 }

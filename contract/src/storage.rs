@@ -186,3 +186,18 @@ impl StorageManagement for Contract {
         self.internal_storage_balance_of(&account_id)
     }
 }
+
+#[near_bindgen]
+impl Contract {
+    /// Helper method for debugging storage usage that ignores minimum storage limits.
+    pub fn debug_storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance> {
+        self.internal_get_storage(&account_id)
+            .map(|storage| StorageBalance {
+                total: storage.storage_balance.into(),
+                available: U128(
+                    storage.storage_balance
+                        - Balance::from(storage.used_bytes) * env::storage_byte_cost(),
+                ),
+            })
+    }
+}
